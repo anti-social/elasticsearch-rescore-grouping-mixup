@@ -92,7 +92,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
     }
 
     @Override
-    public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) throws IOException {
+    public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) {
         IndexFieldData<?> groupingField =
                 this.groupingField == null ? null : context.getForField(context.fieldMapper(this.groupingField));
         SearchScript.LeafFactory scriptFactory = context.getScriptService()
