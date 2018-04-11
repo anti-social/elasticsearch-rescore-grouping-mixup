@@ -238,3 +238,22 @@ decline_script:
 
 As you can see this function has an asymptote `y = 0.5`:
 [1 / (x + 2) + 0.5](https://www.wolframalpha.com/input/?i=plot+1+%2F+(x+%2B+2)+%2B+0.5,+x+%3D+-1..10)
+
+If you need you can use your own script:
+
+```
+curl -X GET -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop/_search' --data-binary '---
+query:
+  function_score:
+    field_value_factor:
+      field: rank
+rescore:
+  window_size: 1000
+  grouping_mixup:
+    group_field: manufacturer
+    decline_script:
+      lang: painless
+      source: |
+        params.pos >= 4 ? (1 / (params.pos + 2) + 0.5) : (1 / (params.pos + 1))
+'
+```

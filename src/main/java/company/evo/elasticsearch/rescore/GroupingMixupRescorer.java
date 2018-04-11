@@ -127,7 +127,7 @@ public class GroupingMixupRescorer implements Rescorer {
         });
 
         // Calculate new scores
-        int pos = 0;
+        double pos = 0;
         float minOrigScore = hits[windowSize - 1].score;
         BytesRef curGroupValue = null, prevGroupValue = null;
         for (int i = 0; i < windowSize; i++) {
@@ -140,7 +140,8 @@ public class GroupingMixupRescorer implements Rescorer {
             LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
             SearchScript boostScript = leafScripts.get(leafContext);
             boostScript.setDocument(hit.doc - leafContext.docBase);
-            boostScript.setNextVar("_pos", pos);
+            Map<String, Object> scriptParams = boostScript.getParams();
+            scriptParams.put("pos", pos);
             hit.score = hit.score * (float) boostScript.runAsDouble();
 
             pos++;

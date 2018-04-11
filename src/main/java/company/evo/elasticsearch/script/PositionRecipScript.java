@@ -21,12 +21,11 @@ package company.evo.elasticsearch.script;
 
 import org.apache.lucene.index.LeafReaderContext;
 
-import org.elasticsearch.common.Nullable;
 import org.elasticsearch.script.SearchScript;
 import org.elasticsearch.search.lookup.SearchLookup;
 
 import java.util.Collections;
-import java.util.Locale;
+import java.util.HashMap;
 import java.util.Map;
 
 public class PositionRecipScript extends SearchScript {
@@ -36,41 +35,38 @@ public class PositionRecipScript extends SearchScript {
     private final double b;
     private final double c;
 
-    private double pos = 0.0;
+    private static final Map<String, Object> variables = new HashMap<>();
 
-    private PositionRecipScript(@Nullable Map<String, Object> params, SearchLookup lookup, LeafReaderContext leafContext) {
-        super(params, lookup, leafContext);
-        if (params == null) {
-            params = Collections.emptyMap();
-        }
-        m = params.containsKey("m") ? (Double) params.get("m") : 1.0;
-        a = params.containsKey("a") ? (Double) params.get("a") : 1.0;
-        b = params.containsKey("b") ? (Double) params.get("b") : 1.0;
-        c = params.containsKey("c") ? (Double) params.get("c") : 0.0;
+    private PositionRecipScript(double m, double a, double b, double c, SearchLookup lookup, LeafReaderContext leafContext) {
+        super(Collections.emptyMap(), lookup, leafContext);
+        this.m = m;
+        this.a = a;
+        this.b = b;
+        this.c = c;
     }
 
     @Override
-    public void setNextVar(String name, Object value) {
-        if (name.equals("_pos")) {
-            pos = (Integer) value;
-        } else {
-            throw new IllegalArgumentException(
-                    String.format(Locale.ENGLISH, "Only [_pos] variable is allowed but was: [%s]", name));
-        }
+    public Map<String, Object> getParams() {
+        return variables;
     }
 
     @Override
     public double runAsDouble() {
-        return m / (a * pos + b) + c;
+        return m / (a * (Double) variables.get("pos") + b) + c;
     }
 
     public static class PositionRecipFactory implements Factory {
         @Override
         public LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup) {
+            double m = params.containsKey("m") ? (Double) params.get("m") : 1.0;
+            double a = params.containsKey("a") ? (Double) params.get("a") : 1.0;
+            double b = params.containsKey("b") ? (Double) params.get("b") : 1.0;
+            double c = params.containsKey("c") ? (Double) params.get("c") : 0.0;
+
             return new LeafFactory() {
                 @Override
                 public SearchScript newInstance(LeafReaderContext context) {
-                    return new PositionRecipScript(params, lookup, context);
+                    return new PositionRecipScript(m, a, b, c, lookup, context);
                 }
 
                 @Override
