@@ -82,8 +82,9 @@ public class GroupingMixupRescorer implements Rescorer {
                 .load(currentReaderContext)
                 .getBytesValues();
 
-        final Map<Integer, BytesRef> groupValues = new HashMap<>();
-        Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>();
+        final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
+        final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
+        final Map<LeafReaderContext, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
 
         BytesRefBuilder valueBuilder = new BytesRefBuilder();
 
@@ -100,6 +101,7 @@ public class GroupingMixupRescorer implements Rescorer {
             }
 
             docLeafContexts.put(hit.doc, currentReaderContext);
+            leafScripts.put(currentReaderContext, rescoreCtx.declineScript.newInstance(currentReaderContext));
 
             if (currentReaderContext != prevReaderContext) {
                 fieldValues = rescoreCtx.groupingField
@@ -136,7 +138,7 @@ public class GroupingMixupRescorer implements Rescorer {
             }
 
             LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            SearchScript boostScript = rescoreCtx.declineScript.newInstance(leafContext);
+            SearchScript boostScript = leafScripts.get(leafContext);
             boostScript.setDocument(hit.doc - leafContext.docBase);
             boostScript.setNextVar("_pos", pos);
             hit.score = hit.score * (float) boostScript.runAsDouble();
@@ -163,7 +165,7 @@ public class GroupingMixupRescorer implements Rescorer {
 
     @Override
     public Explanation explain(int topLevelDocId, IndexSearcher searcher, RescoreContext rescoreContext,
-                               Explanation sourceExplanation) throws IOException {
+                               Explanation sourceExplanation) {
         // We cannot explain new scores because we only have single document at this point
         return sourceExplanation;
     }
