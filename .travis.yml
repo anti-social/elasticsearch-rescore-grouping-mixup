@@ -1,0 +1,41 @@
+os: linux
+dist: trusty
+sudo: required
+install:
+- sudo apt-get install -y uidmap
+- echo 'deb [arch=amd64 trusted=yes] https://ubuntu.zerogw.com vagga main' | sudo tee /etc/apt/sources.list.d/vagga.list
+- sudo apt-get update
+- sudo apt-get install vagga
+- |
+  mkdir -p ~/.cache/vagga
+  echo "cache-dir: ~/.cache/vagga" >> ~/.vagga.yaml
+  echo "ubuntu-mirror: http://mirrors.us.kernel.org/ubuntu/" >> ~/.vagga.yaml
+  echo "alpine-mirror: http://mirrors.gigenet.com/alpinelinux/" >> ~/.vagga.yaml
+
+env:
+  global:
+    secure: AVPKHLikgEBt0bwyMN7Vw/CK1c90X1MHf196dxm8MkrWiIy03IGPHD1tpBb1Ns6ePuxHlAJOZMysJJkaZbPj+kospRrRRo77Cr9EFaCt0nqwFvSxE9a3ccjFw4FYiLWNsA1pZr/c3Mf7ShtRcnYjZCu/rz6DtrUqJewzTHSj1SJxYnHEiGPfzIlpVxaOeKe9mr7+MZMutg8cNRG/PkPqkqJmsJI/FCm7Wx0phoAtIQdxQ3LiyyJkIvGGP6eS/QSV1SyXxYS7oU83N6yG81hy+rq1sytgEP86DNfS7EJMeKlZOCCENs2zjwM9JZwWO7CmN3C+BKjBgp7PhyKWj4Kwl2akn3vFIC9GyIRxnmcD44tGyngGjPgG7iPu/P7ENZIJz+lh1qdCfbelmrVpz4fCLLM/yQh/kPKd1IhBRgiLr1mupRzzmIlSpLGA247o7aLsufnvQ0o26U5ToeonUjGVfC5sPiKbCN8KLP10rvIU/oazeK7D81/WQxJo9Pb4gkbbEmB4yD/ejM08h1rtfBGoJ8YXMmL72srnCFvQ8blaCD2zFca99ah465viYucgZLhFFo0w3/QO1l6EEyfKmaOZy/x7tBcgloCDyl4+8zt5u0HSxxlB4TLuFy6qoAov9eHAk0Fm/wJ3/3glgLS6CE9h4iXJ1n7i12XE1sS9/Jah5fw=
+
+before_script:
+- vagga _build jdk9
+
+script:
+- |
+  GRADLE_ARGS="--no-daemon"
+  if [[ $TRAVIS_TAG == v* ]]; then
+    GRADLE_ARGS="$GRADLE_ARGS -Prelease=true"
+  fi
+  vagga assemble $GRADLE_ARGS
+  vagga test-unit $GRADLE_ARGS
+  vagga test-integ $GRADLE_ARGS
+
+after_success:
+- |
+  echo $TRAVIS_TAG
+  if [[ $TRAVIS_TAG == v* ]]; then
+    vagga -e BINTRAY_USER -e BINTRAY_API_KEY gradle bintrayUpload -Prelease=true --info --no-daemon
+  fi
+
+cache:
+  directories:
+  - $HOME/.cache/vagga/gradle-cache
