@@ -107,7 +107,7 @@ public class GroupingMixupRescorer implements Rescorer {
                         .getBytesValues();
             }
 
-            if (fieldValues.advanceExact(docId) && fieldValues.docValueCount() > 0) {
+            if (fieldValues.advanceExact(docId)) {
                 valueBuilder.copyBytes(fieldValues.nextValue());
             } else {
                 valueBuilder.clear();
