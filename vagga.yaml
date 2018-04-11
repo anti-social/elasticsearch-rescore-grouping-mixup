@@ -1,0 +1,146 @@
+_default:
+  gradle-home: &gradle-home /work/.gradle
+  cmd-opts: &cmd-opts
+    container: jdk9
+    user-id: 1
+    external-user-id: 0
+    prerequisites: [_mk-gradle-user-home]
+    volumes:
+      /tmp: !Tmpfs { size: 200M }
+      /work/.gradle/caches: !CacheDir gradle-cache
+
+containers:
+  jdk9:
+    environ:
+      JAVA_HOME: /usr/lib/jvm/java-9-openjdk-amd64
+      GRADLE_USER_HOME: *gradle-home
+    setup:
+    - !UbuntuRelease { codename: artful }
+    - !UbuntuUniverse
+    - !Install
+      - ca-certificates-java
+      - openjdk-9-jdk-headless
+    - !Sh update-ca-certificates
+    - !EnsureDir /opt/gradle
+    - !Unzip
+      url: https://services.gradle.org/distributions/gradle-4.6-bin.zip
+      subdir: gradle-4.6
+      path: /opt/gradle
+    - !Sh ln -s /opt/gradle/bin/gradle /usr/local/bin/gradle
+
+  elastic:
+    environ:
+      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+    setup:
+    - !Ubuntu xenial
+    - !Install [ca-certificates]
+    - !AptTrust
+      server: pgp.mit.edu
+      keys: [D88E42B4]
+    - !UbuntuRepo
+      url: https://artifacts.elastic.co/packages/6.x/apt
+      suite: stable
+      components: [main]
+    - !Env
+      ES_SKIP_SET_KERNEL_PARAMETERS: true
+    - !Install
+      - openjdk-8-jdk-headless
+    - !Depends es.version
+    - !Sh apt-get install elasticsearch=$(cat es.version)
+    - !EnsureDir /var/elasticsearch
+    volumes:
+      /var/elasticsearch: !Persistent { name: elastic }
+    auto-clean: true
+
+commands:
+  _mk-gradle-user-home: !Command
+    container: jdk9
+    run: mkdir -p $GRADLE_USER_HOME/caches
+
+  daemon: !Command
+    <<: *cmd-opts
+    description: Run gradle daemon
+    run: |
+      # --foreground option runs a daemon with incompatible jvm options
+      # so another gradle process rejects to connect to the daemon
+      gradle --dry-run --daemon
+      GRADLE_PID=$(pidof java)
+      echo "Gradle daemon successfully started [PID: $GRADLE_PID]."
+      while [ -e /proc/$GRADLE_PID ]; do sleep 1; done
+
+  assemble: !Command
+    <<: *cmd-opts
+    description: Assembles the outputs of this project
+    run: [gradle, assemble]
+
+  assemble-release: !Command
+    <<: *cmd-opts
+    description: Assembles the outputs of this project
+    run: [gradle, assemble, -Prelease]
+
+  build: !Command
+    <<: *cmd-opts
+    description: Assembles and tests this project
+    run: [gradle, build]
+
+  compile: !Command
+    <<: *cmd-opts
+    description: Compiles main source files
+    run: [gradle, compileKotlin]
+
+  compile-test: !Command
+    <<: *cmd-opts
+    description: Compiles test source files
+    run: [gradle, compileTestKotlin]
+
+  test-unit: !Command
+    <<: *cmd-opts
+    description: Runs unit tests
+    run: [gradle, test]
+
+  test-integ: !Command
+    <<: *cmd-opts
+    description: Runs integration tests
+    run: [gradle, integTest]
+
+  clean: !Command
+    <<: *cmd-opts
+    description: Deletes the build directory
+    run: [gradle, clean]
+
+  clean-build: !Command
+    <<: *cmd-opts
+    description: Deletes the build directory and then assembles and tests the project
+    run: [gradle, clean, build]
+
+  gradle: !Command
+    <<: *cmd-opts
+    description: Runs arbitrary gradle task
+    run: [gradle]
+
+  test: !Command
+    <<: *cmd-opts
+    description: "Run all tests: unit and integration"
+    prerequisites:
+    - test-unit
+    - test-integ
+    run: |
+      echo "All tests are passed"
+
+  elastic: !Command
+    description: Run elasticsearch with the plugin
+    container: elastic
+    user-id: 1
+    external-user-id: 0
+    volumes:
+      /usr/share/elasticsearch/plugins: !Tmpfs
+    prerequisites: [assemble]
+    run: |
+      set -e
+      DISTRIBUTION_DIR=/work/build/distributions
+      PLUGIN_PATH=$DISTRIBUTION_DIR/rescore-grouping-mixup-$(cat /work/project.version)-es$(cat /work/es.version).zip
+      /usr/share/elasticsearch/bin/elasticsearch-plugin install file:${PLUGIN_PATH}
+      /usr/share/elasticsearch/bin/elasticsearch \
+        -E path.logs=/var/elasticsearch/logs \
+        -E path.data=/var/elasticsearch/data \
+        -E logger.company.evo.elasticsearch=debug

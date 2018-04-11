@@ -1,7 +1,9 @@
 import org.elasticsearch.gradle.VersionProperties
 
 buildscript {
-    val esVersion = "6.2.3"
+    val esVersion = project.file("es.version")
+            .readLines()
+            .first()
 
     repositories {
         mavenCentral()
@@ -21,7 +23,10 @@ apply {
     plugin("elasticsearch.esplugin")
 }
 
-val pluginVersion = "0.1.0-SNAPSHOT"
+val pluginVersion = project.file("project.version")
+        .readLines()
+        .first()
+        .toUpperCase()
         .let { ver ->
             if (hasProperty("release")) {
                 ver.removeSuffix("-SNAPSHOT")
