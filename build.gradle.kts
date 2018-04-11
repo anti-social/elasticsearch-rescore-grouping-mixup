@@ -1,3 +1,6 @@
+import java.util.Date
+import com.jfrog.bintray.gradle.BintrayExtension
+import com.jfrog.bintray.gradle.RecordingCopyTask
 import org.elasticsearch.gradle.VersionProperties
 
 buildscript {
@@ -17,6 +20,7 @@ buildscript {
 plugins {
     java
     idea
+    id("com.jfrog.bintray") version "1.8.0"
 }
 
 apply {
@@ -47,3 +51,37 @@ project.setProperty("noticeFile", project.rootProject.file("NOTICE.txt"))
 
 val versions = VersionProperties.getVersions() as Map<String, String>
 project.version = "$pluginVersion-es${versions["elasticsearch"]}"
+
+bintray {
+    user = if (hasProperty("bintrayUser")) {
+        property("bintrayUser").toString()
+    } else {
+        System.getenv("BINTRAY_USER")
+    }
+    key = if (hasProperty("bintrayApiKey")) {
+        property("bintrayApiKey").toString()
+    } else {
+        System.getenv("BINTRAY_API_KEY")
+    }
+    pkg(delegateClosureOf<BintrayExtension.PackageConfig> {
+        repo = "elasticsearch"
+        name = project.name
+        userOrg = "evo"
+        setLicenses("Apache-2.0")
+        setLabels("elasticsearch-plugin", "rescore-grouping-mixup")
+        vcsUrl = "https://github.com/anti-social/elasticsearch-rescore-grouping-mixup.git"
+        version(delegateClosureOf<BintrayExtension.VersionConfig> {
+            name = pluginVersion
+            released = Date().toString()
+            vcsTag = "v$pluginVersion"
+        })
+    })
+    filesSpec(delegateClosureOf<RecordingCopyTask> {
+        val distributionsDir = buildDir.resolve("distributions")
+        from(distributionsDir)
+        include("*-$pluginVersion-*.zip")
+        into(".")
+    })
+    publish = true
+    dryRun = hasProperty("bintrayDryRun")
+}
