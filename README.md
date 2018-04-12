@@ -1,3 +1,5 @@
+[![Travis Status](https://travis-ci.org/anti-social/elasticsearch-rescore-grouping-mixup.svg?branch=master)](https://travis-ci.org/anti-social/elasticsearch-rescore-grouping-mixup)
+
 # Grouping mixup rescorer
 
 This is a rescoring plugin for Elasticsearch that can mix up search results. For example you have
