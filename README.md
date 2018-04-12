@@ -256,6 +256,6 @@ rescore:
     decline_script:
       lang: painless
       source: |
-        params.pos >= 4 ? (1 / (params.pos + 2) + 0.5) : (1 / (params.pos + 1))
+        params.pos < 4 ? (1 / (params.pos + 2) + 0.5) : (1 / (params.pos + 1))
 '
 ```
