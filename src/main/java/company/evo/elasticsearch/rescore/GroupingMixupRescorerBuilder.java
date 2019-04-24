@@ -23,6 +23,7 @@ import org.elasticsearch.common.ParseField;
 import org.elasticsearch.common.ParsingException;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
+import org.elasticsearch.common.xcontent.ConstructingObjectParser;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.fielddata.IndexFieldData;
@@ -37,20 +38,19 @@ import java.io.IOException;
 import java.util.Objects;
 
 public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupRescorerBuilder> {
-    public static final ParseField NAME = new ParseField("grouping_mixup", "hit_group_position");
+    public static final String NAME = "grouping_mixup";
     private static ParseField GROUPING_FIELD_FIELD = new ParseField("field", "group_field");
     private static ParseField DECLINE_SCRIPT_FIELD = new ParseField("decline_script", "boost_script");
 
-//    private static final ConstructingObjectParser<GroupingMixupRescorerBuilder, Void> PARSER =
-//        new ConstructingObjectParser<GroupingMixupRescorerBuilder, Void>(NAME,
-//                args -> {
-//            return new GroupingMixupRescorerBuilder((String) args[0], (Script) args[1]);
-//                });
-//    static {
-//        PARSER.declareString(constructorArg(), GROUPING_FIELD_FIELD);
-//        PARSER.declareNamedObjects(constructorArg(), (p, c, n) -> Script.parse(p), DECLINE_SCRIPT_FIELD);
-//        PARSER.declareNamedObjects(parseFromXContent());
-//    }
+    private static final ConstructingObjectParser<GroupingMixupRescorerBuilder, Void> PARSER =
+           new ConstructingObjectParser<>(
+                   NAME,
+                   args -> new GroupingMixupRescorerBuilder((String) args[0], (Script) args[1])
+           );
+    static {
+        PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUPING_FIELD_FIELD);
+        PARSER.declareNamedObjects(ConstructingObjectParser.constructorArg(), (p, c, n) -> Script.parse(p), DECLINE_SCRIPT_FIELD);
+    }
 
     private final String groupingField;
     private final Script declineScript;
@@ -75,7 +75,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
 
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
-        builder.startObject(NAME.getPreferredName());
+        builder.startObject(NAME);
         builder.field(GROUPING_FIELD_FIELD.getPreferredName(), groupingField);
         builder.field(DECLINE_SCRIPT_FIELD.getPreferredName(), declineScript);
         builder.endObject();
@@ -83,7 +83,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
 
     @Override
     public String getWriteableName() {
-        return NAME.getPreferredName();
+        return NAME;
     }
 
     @Override
@@ -117,37 +117,8 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
     }
 
     public static GroupingMixupRescorerBuilder fromXContent(XContentParser parser)
-            throws IOException, ParsingException
+            throws ParsingException
     {
-        String groupingField = null;
-        Script script = null;
-        String fieldName = null;
-        XContentParser.Token token;
-        while ((token = parser.nextToken()) != XContentParser.Token.END_OBJECT) {
-            if (token == XContentParser.Token.FIELD_NAME) {
-                fieldName = parser.currentName();
-            } else if (token == XContentParser.Token.START_OBJECT) {
-                if (DECLINE_SCRIPT_FIELD.match(fieldName)) {
-                    script = Script.parse(parser);
-                } else {
-                    throw new ParsingException(parser.getTokenLocation(),
-                            "grouping_mixup rescorer doesn't support [" + fieldName + "]");
-                }
-            } else if (token.isValue()) {
-                if (GROUPING_FIELD_FIELD.match(fieldName)) {
-                    groupingField = parser.text();
-                } else {
-                    throw new ParsingException(parser.getTokenLocation(),
-                            "grouping_mixup rescorer doesn't support [" + fieldName + "]");
-                }
-            }
-        }
-
-        if (groupingField == null) {
-            throw new ParsingException(parser.getTokenLocation(),
-                    "grouping_mixup rescorer requires [field] field");
-        }
-
-        return new GroupingMixupRescorerBuilder(groupingField, script);
+        return PARSER.apply(parser, null);
     }
 }

@@ -29,9 +29,9 @@ import company.evo.elasticsearch.rescore.GroupingMixupRescorerBuilder;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import static java.util.Collections.singletonList;
 
 public class GroupingMixupPlugin extends Plugin
         implements SearchPlugin, ScriptPlugin
@@ -39,14 +39,13 @@ public class GroupingMixupPlugin extends Plugin
 
     @Override
     public List<RescorerSpec<?>> getRescorers() {
-        List<RescorerSpec<?>> rescorers = new ArrayList<>();
-        for (String name : GroupingMixupRescorerBuilder.NAME.getAllNamesIncludedDeprecated()) {
-            rescorers.add(new RescorerSpec<>
-                    (name,
-                            GroupingMixupRescorerBuilder::new,
-                            GroupingMixupRescorerBuilder::fromXContent));
-        }
-        return rescorers;
+        return singletonList(
+            new RescorerSpec<>(
+                    GroupingMixupRescorerBuilder.NAME,
+                    GroupingMixupRescorerBuilder::new,
+                    GroupingMixupRescorerBuilder::fromXContent
+            )
+        );
     }
 
     @Override
