@@ -25,7 +25,6 @@ import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.plugins.SearchPlugin;
 
-//import company.evo.elasticsearch.script.PositionRecipScript;
 import company.evo.elasticsearch.rescore.GroupingMixupRescorerBuilder;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
@@ -33,9 +32,6 @@ import org.elasticsearch.script.ScriptEngine;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-
-import static java.util.Collections.emptyList;
-import static java.util.Collections.singletonList;
 
 public class GroupingMixupPlugin extends Plugin
         implements SearchPlugin, ScriptPlugin
@@ -57,9 +53,4 @@ public class GroupingMixupPlugin extends Plugin
     public ScriptEngine getScriptEngine(Settings settings, Collection<ScriptContext<?>> contexts) {
         return new PositionRecipScriptEngine();
     }
-
-//    @Override
-//    public List<NativeScriptFactory> getNativeScripts() {
-//        return singletonList(new PositionRecipScript.Factory());
-//    }
 }
