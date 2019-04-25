@@ -1,12 +1,13 @@
 import java.util.Date
 import com.jfrog.bintray.gradle.BintrayExtension
-import com.jfrog.bintray.gradle.RecordingCopyTask
 import org.elasticsearch.gradle.VersionProperties
+import com.jfrog.bintray.gradle.tasks.RecordingCopyTask
 
 buildscript {
-    val esVersion = project.file("es.version")
-            .readLines()
-            .first()
+    val esVersion = project.properties["esVersion"]
+            ?: project.file("es.version")
+                    .readLines()
+                    .first()
 
     repositories {
         mavenCentral()
@@ -20,7 +21,7 @@ buildscript {
 plugins {
     java
     idea
-    id("com.jfrog.bintray") version "1.8.0"
+    id("com.jfrog.bintray") version "1.8.4"
 }
 
 apply {
