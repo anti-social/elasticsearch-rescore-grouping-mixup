@@ -21,14 +21,14 @@ package company.evo.elasticsearch.script;
 
 import org.apache.lucene.index.LeafReaderContext;
 
-import org.elasticsearch.script.SearchScript;
+import org.elasticsearch.script.ScoreScript;
 import org.elasticsearch.search.lookup.SearchLookup;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-public class PositionRecipScript extends SearchScript {
+public class PositionRecipScript extends ScoreScript {
 
     private final double m;
     private final double a;
@@ -51,7 +51,7 @@ public class PositionRecipScript extends SearchScript {
     }
 
     @Override
-    public double runAsDouble() {
+    public double execute() {
         return m / (a * (Double) variables.get("pos") + b) + c;
     }
 
@@ -65,7 +65,7 @@ public class PositionRecipScript extends SearchScript {
 
             return new LeafFactory() {
                 @Override
-                public SearchScript newInstance(LeafReaderContext context) {
+                public ScoreScript newInstance(LeafReaderContext context) {
                     return new PositionRecipScript(m, a, b, c, lookup, context);
                 }
 

@@ -29,8 +29,8 @@ import org.elasticsearch.common.xcontent.XContentParser;
 import org.elasticsearch.index.fielddata.IndexFieldData;
 import org.elasticsearch.index.query.QueryRewriteContext;
 import org.elasticsearch.index.query.QueryShardContext;
+import org.elasticsearch.script.ScoreScript;
 import org.elasticsearch.script.Script;
-import org.elasticsearch.script.SearchScript;
 import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.search.rescore.RescorerBuilder;
 
@@ -95,8 +95,8 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) {
         IndexFieldData<?> groupingField =
                 this.groupByField == null ? null : context.getForField(context.fieldMapper(this.groupByField));
-        SearchScript.LeafFactory scriptFactory = context.getScriptService()
-                .compile(rescoreScript, SearchScript.CONTEXT)
+        ScoreScript.LeafFactory scriptFactory = context.getScriptService()
+                .compile(rescoreScript, ScoreScript.CONTEXT)
                 .newFactory(rescoreScript.getParams(), context.lookup());
         return new GroupingMixupRescorer.Context(windowSize, groupingField, scriptFactory);
     }

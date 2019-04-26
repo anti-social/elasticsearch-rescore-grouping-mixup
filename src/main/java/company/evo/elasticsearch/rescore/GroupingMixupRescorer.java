@@ -29,7 +29,7 @@ import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.BytesRefBuilder;
 import org.elasticsearch.index.fielddata.IndexFieldData;
 import org.elasticsearch.index.fielddata.SortedBinaryDocValues;
-import org.elasticsearch.script.SearchScript;
+import org.elasticsearch.script.ScoreScript;
 import org.elasticsearch.search.rescore.RescoreContext;
 import org.elasticsearch.search.rescore.Rescorer;
 
@@ -61,7 +61,7 @@ public class GroupingMixupRescorer implements Rescorer {
             throws IOException
     {
         assert rescoreContext != null;
-        if (topDocs == null || topDocs.totalHits == 0 || topDocs.scoreDocs.length == 0) {
+        if (topDocs == null || topDocs.totalHits.value == 0 || topDocs.scoreDocs.length == 0) {
             return topDocs;
         }
 
@@ -84,7 +84,7 @@ public class GroupingMixupRescorer implements Rescorer {
 
         final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
         final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
+        final Map<LeafReaderContext, ScoreScript> leafScripts = new HashMap<>(readerContexts.size());
 
         BytesRefBuilder valueBuilder = new BytesRefBuilder();
 
@@ -138,11 +138,11 @@ public class GroupingMixupRescorer implements Rescorer {
             }
 
             LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            SearchScript boostScript = leafScripts.get(leafContext);
+            ScoreScript boostScript = leafScripts.get(leafContext);
             boostScript.setDocument(hit.doc - leafContext.docBase);
             Map<String, Object> scriptParams = boostScript.getParams();
             scriptParams.put("pos", pos);
-            hit.score = hit.score * (float) boostScript.runAsDouble();
+            hit.score = hit.score * (float) boostScript.execute();
 
             pos++;
             prevGroupValue = curGroupValue;
@@ -161,7 +161,7 @@ public class GroupingMixupRescorer implements Rescorer {
         // Sort hits by new scores
         Arrays.sort(hits, SCORE_DOC_COMPARATOR);
 
-        return new TopDocs(topDocs.totalHits, hits, hits[0].score);
+        return new TopDocs(topDocs.totalHits, hits);
     }
 
     @Override
@@ -178,9 +178,9 @@ public class GroupingMixupRescorer implements Rescorer {
 
     static class Context extends RescoreContext {
         private IndexFieldData<?> groupingField;
-        private final SearchScript.LeafFactory declineScript;
+        private final ScoreScript.LeafFactory declineScript;
 
-        Context(int windowSize, IndexFieldData<?> groupingField, SearchScript.LeafFactory declineScript) {
+        Context(int windowSize, IndexFieldData<?> groupingField, ScoreScript.LeafFactory declineScript) {
             super(windowSize, GroupingMixupRescorer.INSTANCE);
             this.groupingField = groupingField;
             this.declineScript = declineScript;

@@ -21,7 +21,7 @@
 
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
-import org.elasticsearch.script.SearchScript;
+import org.elasticsearch.script.ScoreScript;
 
 import java.util.Map;
 
@@ -33,12 +33,12 @@ public class PositionRecipScriptEngine implements ScriptEngine {
 
     @Override
     public <T> T compile(String name, String code, ScriptContext<T> context, Map<String, String> params) {
-        if (!context.equals(SearchScript.CONTEXT)) {
+        if (!context.equals(ScoreScript.CONTEXT)) {
             throw new IllegalArgumentException(getType() + " scripts cannot be used for context [" + context.name + "]");
         }
         // we use the script "source" as the script identifier
         if ("position_recip".equals(code)) {
-            SearchScript.Factory factory = new PositionRecipScript.PositionRecipFactory();
+            ScoreScript.Factory factory = new PositionRecipScript.PositionRecipFactory();
             return context.factoryClazz.cast(factory);
         }
         throw new IllegalArgumentException("Unknown script name [" + code + "]");
