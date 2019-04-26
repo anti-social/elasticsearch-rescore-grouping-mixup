@@ -40,7 +40,7 @@ import java.util.Objects;
 public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupRescorerBuilder> {
     public static final String NAME = "grouping_mixup";
     private static ParseField GROUPING_FIELD_FIELD = new ParseField("field", "group_field");
-    private static ParseField DECLINE_SCRIPT_FIELD = new ParseField("decline_script", "boost_script");
+    private static ParseField RESCORE_SCRIPT_FIELD = new ParseField("rescore_script", "decline_script");
 
     private static final ConstructingObjectParser<GroupingMixupRescorerBuilder, Void> PARSER =
            new ConstructingObjectParser<>(
@@ -49,35 +49,35 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
            );
     static {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUPING_FIELD_FIELD);
-        PARSER.declareNamedObjects(ConstructingObjectParser.constructorArg(), (p, c, n) -> Script.parse(p), DECLINE_SCRIPT_FIELD);
+        PARSER.declareNamedObjects(ConstructingObjectParser.constructorArg(), (p, c, n) -> Script.parse(p), RESCORE_SCRIPT_FIELD);
     }
 
-    private final String groupingField;
-    private final Script declineScript;
+    private final String groupByField;
+    private final Script rescoreScript;
 
-    GroupingMixupRescorerBuilder(String groupingField, Script declineScript) {
+    GroupingMixupRescorerBuilder(String groupByField, Script rescoreScript) {
         super();
-        this.groupingField = groupingField;
-        this.declineScript = declineScript;
+        this.groupByField = groupByField;
+        this.rescoreScript = rescoreScript;
     }
 
     public GroupingMixupRescorerBuilder(StreamInput in) throws IOException {
         super(in);
-        this.groupingField = in.readString();
-        this.declineScript = new Script(in);
+        this.groupByField = in.readString();
+        this.rescoreScript = new Script(in);
     }
 
     @Override
     public void doWriteTo(StreamOutput out) throws IOException {
-        out.writeString(groupingField);
-        declineScript.writeTo(out);
+        out.writeString(groupByField);
+        rescoreScript.writeTo(out);
     }
 
     @Override
     public void doXContent(XContentBuilder builder, Params params) throws IOException {
         builder.startObject(NAME);
-        builder.field(GROUPING_FIELD_FIELD.getPreferredName(), groupingField);
-        builder.field(DECLINE_SCRIPT_FIELD.getPreferredName(), declineScript);
+        builder.field(GROUPING_FIELD_FIELD.getPreferredName(), groupByField);
+        builder.field(RESCORE_SCRIPT_FIELD.getPreferredName(), rescoreScript);
         builder.endObject();
     }
 
@@ -94,10 +94,10 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
     @Override
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) {
         IndexFieldData<?> groupingField =
-                this.groupingField == null ? null : context.getForField(context.fieldMapper(this.groupingField));
+                this.groupByField == null ? null : context.getForField(context.fieldMapper(this.groupByField));
         SearchScript.LeafFactory scriptFactory = context.getScriptService()
-                .compile(declineScript, SearchScript.CONTEXT)
-                .newFactory(declineScript.getParams(), context.lookup());
+                .compile(rescoreScript, SearchScript.CONTEXT)
+                .newFactory(rescoreScript.getParams(), context.lookup());
         return new GroupingMixupRescorer.Context(windowSize, groupingField, scriptFactory);
     }
 
@@ -107,13 +107,13 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
             return false;
         }
         GroupingMixupRescorerBuilder other = (GroupingMixupRescorerBuilder) obj;
-        return groupingField.equals(other.groupingField)
-                && declineScript.equals(other.declineScript);
+        return groupByField.equals(other.groupByField)
+                && rescoreScript.equals(other.rescoreScript);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(super.hashCode(), groupingField, declineScript);
+        return Objects.hash(super.hashCode(), groupByField, rescoreScript);
     }
 
     public static GroupingMixupRescorerBuilder fromXContent(XContentParser parser)
