@@ -19,13 +19,13 @@
 
 package company.evo.elasticsearch.plugin;
 
+import company.evo.elasticsearch.rescore.GroupingMixupRescorerBuilder;
 import company.evo.elasticsearch.script.PositionRecipScriptEngine;
+
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.plugins.ScriptPlugin;
 import org.elasticsearch.plugins.SearchPlugin;
-
-import company.evo.elasticsearch.rescore.GroupingMixupRescorerBuilder;
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 
@@ -36,7 +36,6 @@ import static java.util.Collections.singletonList;
 public class GroupingMixupPlugin extends Plugin
         implements SearchPlugin, ScriptPlugin
 {
-
     @Override
     public List<RescorerSpec<?>> getRescorers() {
         return singletonList(

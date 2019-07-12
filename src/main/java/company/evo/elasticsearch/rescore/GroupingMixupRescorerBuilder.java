@@ -49,7 +49,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
            );
     static {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUPING_FIELD_FIELD);
-        PARSER.declareNamedObjects(ConstructingObjectParser.constructorArg(), (p, c, n) -> Script.parse(p), RESCORE_SCRIPT_FIELD);
+        PARSER.declareObject(ConstructingObjectParser.constructorArg(), (p, c) -> Script.parse(p), RESCORE_SCRIPT_FIELD);
     }
 
     private final String groupByField;
