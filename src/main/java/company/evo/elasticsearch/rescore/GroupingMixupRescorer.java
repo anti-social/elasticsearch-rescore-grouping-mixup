@@ -42,6 +42,8 @@ import java.util.Map;
 import java.util.Set;
 
 public class GroupingMixupRescorer implements Rescorer {
+    public static final String POSITION_PARAMETER_NAME = "_pos";
+
     static final GroupingMixupRescorer INSTANCE = new GroupingMixupRescorer();
 
     private static final Comparator<ScoreDoc> DOC_COMPARATOR = Comparator.comparingInt((d) -> d.doc);
@@ -141,7 +143,7 @@ public class GroupingMixupRescorer implements Rescorer {
             SearchScript boostScript = leafScripts.get(leafContext);
             boostScript.setDocument(hit.doc - leafContext.docBase);
             Map<String, Object> scriptParams = boostScript.getParams();
-            scriptParams.put("pos", pos);
+            scriptParams.put(POSITION_PARAMETER_NAME, pos);
             hit.score = hit.score * (float) boostScript.runAsDouble();
 
             pos++;

@@ -19,6 +19,7 @@
 
 package company.evo.elasticsearch.script;
 
+import company.evo.elasticsearch.rescore.GroupingMixupRescorer;
 import org.apache.lucene.index.LeafReaderContext;
 
 import org.elasticsearch.script.SearchScript;
@@ -52,7 +53,7 @@ public class PositionRecipScript extends SearchScript {
 
     @Override
     public double runAsDouble() {
-        return m / (a * (Double) variables.get("pos") + b) + c;
+        return m / (a * (Double) variables.get(GroupingMixupRescorer.POSITION_PARAMETER_NAME) + b) + c;
     }
 
     public static class PositionRecipFactory implements Factory {
