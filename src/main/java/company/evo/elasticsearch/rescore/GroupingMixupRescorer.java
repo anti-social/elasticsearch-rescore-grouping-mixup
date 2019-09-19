@@ -19,6 +19,8 @@
 
 package company.evo.elasticsearch.rescore;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
@@ -58,6 +60,8 @@ public class GroupingMixupRescorer implements Rescorer {
         return a.doc - b.doc;
     };
 
+    private final Logger logger = LogManager.getLogger(getClass());
+
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
             throws IOException
@@ -77,93 +81,72 @@ public class GroupingMixupRescorer implements Rescorer {
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         List<LeafReaderContext> readerContexts = searcher.getIndexReader().leaves();
-        int currentReaderIx = 0;
-        LeafReaderContext currentReaderContext = readerContexts.get(currentReaderIx);
+        int currentReaderIx = -1;
+        int currentReaderEndDoc = 0;
+        LeafReaderContext currentReaderContext = null;
+        SortedBinaryDocValues groupValues = null;
+        SearchScript declineScript = null;
 
-        SortedBinaryDocValues fieldValues = rescoreCtx.groupingField
-                .load(currentReaderContext)
-                .getBytesValues();
+        final Map<BytesRef, Integer> groupPositions = new HashMap<>();
 
-        final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
-        final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
-
-        BytesRefBuilder valueBuilder = new BytesRefBuilder();
+        BytesRefBuilder groupValueBuilder = new BytesRefBuilder();
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
             LeafReaderContext prevReaderContext = currentReaderContext;
 
             // find segment that contains current document
-            int docId = hit.doc - currentReaderContext.docBase;
-            while (docId >= currentReaderContext.reader().maxDoc()) {
+            while (hit.doc >= currentReaderEndDoc) {
                 currentReaderIx++;
                 currentReaderContext = readerContexts.get(currentReaderIx);
-                docId = hit.doc - currentReaderContext.docBase;
+                currentReaderEndDoc = currentReaderContext.docBase + currentReaderContext.reader().maxDoc();
             }
 
-            docLeafContexts.put(hit.doc, currentReaderContext);
-            leafScripts.put(currentReaderContext, rescoreCtx.declineScript.newInstance(currentReaderContext));
-
+            int docId = hit.doc - currentReaderContext.docBase;
             if (currentReaderContext != prevReaderContext) {
-                fieldValues = rescoreCtx.groupingField
+                groupValues = rescoreCtx.groupingField
                         .load(currentReaderContext)
                         .getBytesValues();
+                declineScript = rescoreCtx.declineScript.newInstance(currentReaderContext);
             }
-
-            if (fieldValues.advanceExact(docId)) {
-                valueBuilder.copyBytes(fieldValues.nextValue());
+            if (groupValues.advanceExact(docId)) {
+                groupValueBuilder.copyBytes(groupValues.nextValue());
             } else {
-                valueBuilder.clear();
+                groupValueBuilder.clear();
             }
-            groupValues.put(hit.doc, valueBuilder.toBytesRef());
-        }
+            BytesRef groupValue = groupValueBuilder.toBytesRef();
+            int groupPos = groupPositions.compute(groupValue, (k, curPos) -> {
+                if (curPos == null) {
+                    return 0;
+                }
+                return ++curPos;
+            });
 
-        // Sort by group value
-        Arrays.sort(hits, 0, windowSize, (a, b) -> {
-            int cmp = groupValues.get(a.doc).compareTo(groupValues.get(b.doc));
-            if (cmp == 0) {
-                return SCORE_DOC_COMPARATOR.compare(a, b);
-            }
-            return cmp;
-        });
-
-        // Calculate new scores
-        double pos = 0;
-        float minOrigScore = hits[windowSize - 1].score;
-        BytesRef curGroupValue = null, prevGroupValue = null;
-        for (int i = 0; i < windowSize; i++) {
-            ScoreDoc hit = hits[i];
-            curGroupValue = groupValues.get(hit.doc);
-            if (!curGroupValue.equals(prevGroupValue)) {
-                pos = 0;
-            }
-
-            LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            SearchScript boostScript = leafScripts.get(leafContext);
-            boostScript.setDocument(hit.doc - leafContext.docBase);
-            Map<String, Object> scriptParams = boostScript.getParams();
-            scriptParams.put(POSITION_PARAMETER_NAME, pos);
-            hit.score = hit.score * (float) boostScript.runAsDouble();
-
-            pos++;
-            prevGroupValue = curGroupValue;
-        }
-
-        // Decrease scores for hits that were not rescored.
-        // We must do that to satisfy elasticsearch's assertion
-        float lastDeltaScore = minOrigScore - hits[windowSize - 1].score;
-        if (lastDeltaScore > 0.0F) {
-            for (int i = windowSize; i < hits.length; i++) {
-                ScoreDoc hit = hits[i];
-                hit.score -= lastDeltaScore;
-            }
+            // Calculate new score
+            declineScript.setDocument(docId);
+            Map<String, Object> scriptParams = declineScript.getParams();
+            scriptParams.put(POSITION_PARAMETER_NAME, (double) groupPos);
+            hit.score = hit.score * (float) declineScript.runAsDouble();
         }
 
         // Sort hits by new scores
-        Arrays.sort(hits, SCORE_DOC_COMPARATOR);
+        Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
+        float minRescoredScore = hits[windowSize - 1].score;
+        logger.info("minRescoredScore: {}", minRescoredScore);
 
-        return new TopDocs(topDocs.totalHits, hits, hits[0].score);
+        // Decrease scores for hits that were not rescored.
+        // We must do that to satisfy elasticsearch's assertion
+        if (hits.length > windowSize) {
+            float maxNonRescoredScore = hits[windowSize].score;
+            float deltaScore = maxNonRescoredScore - minRescoredScore;
+            logger.info("deltaScore: {}", deltaScore);
+            for (int i = windowSize; i < hits.length; i++) {
+                ScoreDoc hit = hits[i];
+                hit.score -= deltaScore;
+            }
+        }
+
+        return new TopDocs(topDocs.totalHits, hits, hits[hits.length - 1].score);
     }
 
     @Override
