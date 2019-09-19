@@ -19,6 +19,8 @@
 
 package company.evo.elasticsearch.rescore;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
@@ -42,6 +44,17 @@ import java.util.Map;
 import java.util.Set;
 
 public class GroupingMixupRescorer implements Rescorer {
+
+    class DocScript {
+        int docBase;
+        ScoreScript script;
+
+        public DocScript(int docBase, ScoreScript script) {
+            this.docBase = docBase;
+            this.script = script;
+        }
+    }
+
     public static final String POSITION_PARAMETER_NAME = "_pos";
 
     static final GroupingMixupRescorer INSTANCE = new GroupingMixupRescorer();
@@ -57,6 +70,8 @@ public class GroupingMixupRescorer implements Rescorer {
         }
         return a.doc - b.doc;
     };
+
+    protected final Logger logger = LogManager.getLogger(getClass());
 
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
@@ -74,6 +89,11 @@ public class GroupingMixupRescorer implements Rescorer {
         if (windowSize <= 0) {
             return topDocs;
         }
+        logger.info("Original hits order:");
+        for (int i = 0; i < hits.length; i++) {
+            ScoreDoc hit = hits[i];
+            logger.info("{} {}", hit.doc, hit.score);
+        }
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         List<LeafReaderContext> readerContexts = searcher.getIndexReader().leaves();
@@ -86,9 +106,10 @@ public class GroupingMixupRescorer implements Rescorer {
 
         final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
         final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, ScoreScript> leafScripts = new HashMap<>(readerContexts.size());
+        final Map<Integer, DocScript> docScripts = new HashMap<>(readerContexts.size());
 
         BytesRefBuilder valueBuilder = new BytesRefBuilder();
+
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
@@ -130,7 +151,6 @@ public class GroupingMixupRescorer implements Rescorer {
 
         // Calculate new scores
         double pos = 0;
-        float minOrigScore = hits[windowSize - 1].score;
         BytesRef curGroupValue = null, prevGroupValue = null;
         for (int i = 0; i < windowSize; i++) {
             ScoreDoc hit = hits[i];
@@ -150,18 +170,22 @@ public class GroupingMixupRescorer implements Rescorer {
             prevGroupValue = curGroupValue;
         }
 
+        // Sort hits by new scores
+        Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
+        float minRescoredScore = hits[windowSize - 1].score;
+        logger.info("minRescoredScore: {}", minRescoredScore);
+
         // Decrease scores for hits that were not rescored.
         // We must do that to satisfy elasticsearch's assertion
-        float lastDeltaScore = minOrigScore - hits[windowSize - 1].score;
-        if (lastDeltaScore > 0.0F) {
+        if (hits.length > windowSize) {
+            float maxNonRescoredScore = hits[windowSize].score;
+            float deltaScore = maxNonRescoredScore - minRescoredScore;
+            logger.info("deltaScore: {}", deltaScore);
             for (int i = windowSize; i < hits.length; i++) {
                 ScoreDoc hit = hits[i];
-                hit.score -= lastDeltaScore;
+                hit.score -= deltaScore;
             }
         }
-
-        // Sort hits by new scores
-        Arrays.sort(hits, SCORE_DOC_COMPARATOR);
 
         return new TopDocs(topDocs.totalHits, hits);
     }
