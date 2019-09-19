@@ -19,6 +19,8 @@
 
 package company.evo.elasticsearch.rescore;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
@@ -42,6 +44,19 @@ import java.util.Map;
 import java.util.Set;
 
 public class GroupingMixupRescorer implements Rescorer {
+
+    private static class GroupedDoc {
+        int docBase;
+        BytesRef groupValues;
+        SearchScript script;
+
+        private GroupedDoc(int docBase, BytesRef groupValues, SearchScript script) {
+            this.docBase = docBase;
+            this.groupValues = groupValues;
+            this.script = script;
+        }
+    }
+
     public static final String POSITION_PARAMETER_NAME = "_pos";
 
     static final GroupingMixupRescorer INSTANCE = new GroupingMixupRescorer();
@@ -57,6 +72,8 @@ public class GroupingMixupRescorer implements Rescorer {
         }
         return a.doc - b.doc;
     };
+
+    private final Logger logger = LogManager.getLogger(getClass());
 
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
@@ -74,6 +91,11 @@ public class GroupingMixupRescorer implements Rescorer {
         if (windowSize <= 0) {
             return topDocs;
         }
+        logger.info("Original hits order:");
+        for (int i = 0; i < hits.length; i++) {
+            ScoreDoc hit = hits[i];
+            logger.info("{} {}", hit.doc, hit.score);
+        }
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         List<LeafReaderContext> readerContexts = searcher.getIndexReader().leaves();
@@ -84,11 +106,9 @@ public class GroupingMixupRescorer implements Rescorer {
                 .load(currentReaderContext)
                 .getBytesValues();
 
-        final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
-        final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
+        final Map<Integer, GroupedDoc> groupedDocs = new HashMap<>(windowSize);
 
-        BytesRefBuilder valueBuilder = new BytesRefBuilder();
+        BytesRefBuilder groupValueBuilder = new BytesRefBuilder();
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
@@ -102,26 +122,30 @@ public class GroupingMixupRescorer implements Rescorer {
                 docId = hit.doc - currentReaderContext.docBase;
             }
 
-            docLeafContexts.put(hit.doc, currentReaderContext);
-            leafScripts.put(currentReaderContext, rescoreCtx.declineScript.newInstance(currentReaderContext));
-
             if (currentReaderContext != prevReaderContext) {
                 fieldValues = rescoreCtx.groupingField
                         .load(currentReaderContext)
                         .getBytesValues();
             }
-
             if (fieldValues.advanceExact(docId)) {
-                valueBuilder.copyBytes(fieldValues.nextValue());
+                groupValueBuilder.copyBytes(fieldValues.nextValue());
             } else {
-                valueBuilder.clear();
+                groupValueBuilder.clear();
             }
-            groupValues.put(hit.doc, valueBuilder.toBytesRef());
+
+            groupedDocs.put(
+                    hit.doc,
+                    new GroupedDoc(
+                            currentReaderContext.docBase,
+                            groupValueBuilder.toBytesRef(),
+                            rescoreCtx.declineScript.newInstance(currentReaderContext)
+                    )
+            );
         }
 
         // Sort by group value
         Arrays.sort(hits, 0, windowSize, (a, b) -> {
-            int cmp = groupValues.get(a.doc).compareTo(groupValues.get(b.doc));
+            int cmp = groupedDocs.get(a.doc).groupValues.compareTo(groupedDocs.get(b.doc).groupValues);
             if (cmp == 0) {
                 return SCORE_DOC_COMPARATOR.compare(a, b);
             }
@@ -130,18 +154,17 @@ public class GroupingMixupRescorer implements Rescorer {
 
         // Calculate new scores
         double pos = 0;
-        float minOrigScore = hits[windowSize - 1].score;
         BytesRef curGroupValue = null, prevGroupValue = null;
         for (int i = 0; i < windowSize; i++) {
             ScoreDoc hit = hits[i];
-            curGroupValue = groupValues.get(hit.doc);
+            curGroupValue = groupedDocs.get(hit.doc).groupValues;
             if (!curGroupValue.equals(prevGroupValue)) {
                 pos = 0;
             }
 
-            LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            SearchScript boostScript = leafScripts.get(leafContext);
-            boostScript.setDocument(hit.doc - leafContext.docBase);
+            GroupedDoc docScript = groupedDocs.get(hit.doc);
+            SearchScript boostScript = docScript.script;
+            boostScript.setDocument(hit.doc - docScript.docBase);
             Map<String, Object> scriptParams = boostScript.getParams();
             scriptParams.put(POSITION_PARAMETER_NAME, pos);
             hit.score = hit.score * (float) boostScript.runAsDouble();
@@ -150,20 +173,24 @@ public class GroupingMixupRescorer implements Rescorer {
             prevGroupValue = curGroupValue;
         }
 
+        // Sort hits by new scores
+        Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
+        float minRescoredScore = hits[windowSize - 1].score;
+        logger.info("minRescoredScore: {}", minRescoredScore);
+
         // Decrease scores for hits that were not rescored.
         // We must do that to satisfy elasticsearch's assertion
-        float lastDeltaScore = minOrigScore - hits[windowSize - 1].score;
-        if (lastDeltaScore > 0.0F) {
+        if (hits.length > windowSize) {
+            float maxNonRescoredScore = hits[windowSize].score;
+            float deltaScore = maxNonRescoredScore - minRescoredScore;
+            logger.info("deltaScore: {}", deltaScore);
             for (int i = windowSize; i < hits.length; i++) {
                 ScoreDoc hit = hits[i];
-                hit.score -= lastDeltaScore;
+                hit.score -= deltaScore;
             }
         }
 
-        // Sort hits by new scores
-        Arrays.sort(hits, SCORE_DOC_COMPARATOR);
-
-        return new TopDocs(topDocs.totalHits, hits, hits[0].score);
+        return new TopDocs(topDocs.totalHits, hits, hits[hits.length - 1].score);
     }
 
     @Override
