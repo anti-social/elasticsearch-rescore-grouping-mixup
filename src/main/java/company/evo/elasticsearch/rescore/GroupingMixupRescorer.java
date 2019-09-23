@@ -20,6 +20,7 @@
 package company.evo.elasticsearch.rescore;
 
 import org.apache.lucene.index.LeafReaderContext;
+import org.apache.lucene.index.SortedNumericDocValues;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
@@ -58,6 +59,8 @@ public class GroupingMixupRescorer implements Rescorer {
         return a.doc - b.doc;
     };
 
+    private final org.apache.logging.log4j.Logger logger = org.apache.logging.log4j.LogManager.getLogger(getClass());
+
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
             throws IOException
@@ -86,10 +89,12 @@ public class GroupingMixupRescorer implements Rescorer {
 
         final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
         final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
+        final Map<Integer, SearchScript> leafScripts = new HashMap<>(readerContexts.size());
 
         BytesRefBuilder valueBuilder = new BytesRefBuilder();
+        SearchScript script = rescoreCtx.declineScript.newInstance(currentReaderContext);
 
+        logger.info("Finding out segments for hits");
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
             LeafReaderContext prevReaderContext = currentReaderContext;
@@ -103,13 +108,15 @@ public class GroupingMixupRescorer implements Rescorer {
             }
 
             docLeafContexts.put(hit.doc, currentReaderContext);
-            leafScripts.put(currentReaderContext, rescoreCtx.declineScript.newInstance(currentReaderContext));
-
             if (currentReaderContext != prevReaderContext) {
                 fieldValues = rescoreCtx.groupingField
                         .load(currentReaderContext)
                         .getBytesValues();
+                script = rescoreCtx.declineScript.newInstance(currentReaderContext);
             }
+
+            leafScripts.put(hit.doc, script);
+            logger.info("{}: docBase={}, maxDoc={} script={}", hit.doc, currentReaderContext.docBase, currentReaderContext.reader().maxDoc(), script.toString());
 
             if (fieldValues.advanceExact(docId)) {
                 valueBuilder.copyBytes(fieldValues.nextValue());
@@ -132,6 +139,7 @@ public class GroupingMixupRescorer implements Rescorer {
         double pos = 0;
         float minOrigScore = hits[windowSize - 1].score;
         BytesRef curGroupValue = null, prevGroupValue = null;
+        logger.info("Calculating new scores");
         for (int i = 0; i < windowSize; i++) {
             ScoreDoc hit = hits[i];
             curGroupValue = groupValues.get(hit.doc);
@@ -140,7 +148,12 @@ public class GroupingMixupRescorer implements Rescorer {
             }
 
             LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            SearchScript boostScript = leafScripts.get(leafContext);
+            SearchScript boostScript = leafScripts.get(hit.doc);
+            logger.info("{}: docBase={}, maxDoc={}, script={}", hit.doc, leafContext.docBase, leafContext.reader().maxDoc(), boostScript.toString());
+            SortedNumericDocValues idValues = leafContext.reader().getSortedNumericDocValues("id");
+            if (idValues.advanceExact(hit.doc - leafContext.docBase)) {
+                logger.info("id: {}", idValues.nextValue());
+            }
             boostScript.setDocument(hit.doc - leafContext.docBase);
             Map<String, Object> scriptParams = boostScript.getParams();
             scriptParams.put(POSITION_PARAMETER_NAME, pos);
