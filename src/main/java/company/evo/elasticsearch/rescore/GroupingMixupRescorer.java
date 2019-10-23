@@ -132,14 +132,12 @@ public class GroupingMixupRescorer implements Rescorer {
         // Sort hits by new scores
         Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
         float minRescoredScore = hits[windowSize - 1].score;
-        logger.info("minRescoredScore: {}", minRescoredScore);
 
         // Decrease scores for hits that were not rescored.
         // We must do that to satisfy elasticsearch's assertion
         if (hits.length > windowSize) {
             float maxNonRescoredScore = hits[windowSize].score;
             float deltaScore = maxNonRescoredScore - minRescoredScore;
-            logger.info("deltaScore: {}", deltaScore);
             for (int i = windowSize; i < hits.length; i++) {
                 ScoreDoc hit = hits[i];
                 hit.score -= deltaScore;
