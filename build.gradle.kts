@@ -1,7 +1,7 @@
 import java.util.Date
 import com.jfrog.bintray.gradle.BintrayExtension
-import org.elasticsearch.gradle.VersionProperties
 import com.jfrog.bintray.gradle.tasks.RecordingCopyTask
+import org.elasticsearch.gradle.VersionProperties
 
 buildscript {
     val esVersion = project.properties["esVersion"]
@@ -21,24 +21,19 @@ buildscript {
 plugins {
     java
     idea
+    id("org.ajoberstar.grgit") version "4.0.0-rc.1"
     id("com.jfrog.bintray") version "1.8.4"
 }
 
 apply {
+    plugin("org.ajoberstar.grgit")
     plugin("elasticsearch.esplugin")
 }
 
-val pluginVersion = project.file("project.version")
-        .readLines()
-        .first()
-        .toUpperCase()
-        .let { ver ->
-            if (hasProperty("release")) {
-                ver.removeSuffix("-SNAPSHOT")
-            } else {
-                ver
-            }
-        }
+val lastTag = grgit.describe(mapOf("match" to listOf("v*"), "tags" to true)) ?: "v0.0.0"
+
+val versionParts = lastTag.split('-', limit=3)
+val pluginVersion = versionParts[0].trimStart('v')
 
 configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
     name = "rescore-grouping-mixup"

@@ -24,7 +24,7 @@ script:
   GRADLE_ARGS="--info --stacktrace --no-daemon"
   if [[ $TRAVIS_TAG == v*-es* ]]; then
     ES_VERSION=$(echo $TRAVIS_TAG | sed 's/v.*-es\(.*\)/\1/')
-    GRADLE_ARGS="$GRADLE_ARGS -Prelease=true -PesVersion=$ES_VERSION"
+    GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION"
   fi
   vagga assemble $GRADLE_ARGS
   vagga test-unit $GRADLE_ARGS
