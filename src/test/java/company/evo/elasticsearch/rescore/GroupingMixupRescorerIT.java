@@ -218,6 +218,12 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
                                 .endObject()
                                 .endObject().endObject().endObject()));
 
+        client().prepareIndex("test", "product", "3")
+                .setSource(
+                        "name", "quick huge brown fox",
+                        "company_id", 1)
+                .execute()
+                .actionGet();
         client().prepareIndex("test", "product", "1")
                 .setSource(
                         "name", "the quick brown fox",
@@ -228,12 +234,6 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
                 .setSource(
                         "name", "the quick lazy huge fox jumps over the tree",
                         "company_id", 2)
-                .execute()
-                .actionGet();
-        client().prepareIndex("test", "product", "3")
-                .setSource(
-                        "name", "quick huge brown fox",
-                        "company_id", 1)
                 .execute()
                 .actionGet();
         client().prepareIndex("test", "product", "4")

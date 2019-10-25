@@ -62,6 +62,19 @@ public class GroupingMixupRescorer implements Rescorer {
 
     private final Logger logger = LogManager.getLogger(getClass());
 
+    private static class HitScriptData {
+        final int docId;
+        final BytesRef groupValue;
+        final SearchScript script;
+        int position = 0;
+
+        HitScriptData(int docId, BytesRef groupValue, SearchScript script) {
+            this.docId = docId;
+            this.groupValue = groupValue;
+            this.script = script;
+        }
+    }
+
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
             throws IOException
@@ -78,6 +91,8 @@ public class GroupingMixupRescorer implements Rescorer {
         if (windowSize <= 0) {
             return topDocs;
         }
+
+        // Sort by document ordinal to fetch group values
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         List<LeafReaderContext> readerContexts = searcher.getIndexReader().leaves();
@@ -87,9 +102,8 @@ public class GroupingMixupRescorer implements Rescorer {
         SortedBinaryDocValues groupValues = null;
         SearchScript declineScript = null;
 
-        final Map<BytesRef, Integer> groupPositions = new HashMap<>();
-
         BytesRefBuilder groupValueBuilder = new BytesRefBuilder();
+        final Map<Integer, HitScriptData> hitToScriptData = new HashMap<>();
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
@@ -114,22 +128,47 @@ public class GroupingMixupRescorer implements Rescorer {
             } else {
                 groupValueBuilder.clear();
             }
-            BytesRef groupValue = groupValueBuilder.toBytesRef();
-            int groupPos = groupPositions.compute(groupValue, (k, curPos) -> {
+            hitToScriptData.put(
+                    hit.doc,
+                    new HitScriptData(docId, groupValueBuilder.toBytesRef(), declineScript)
+            );
+        }
+
+        // Sort by group value
+        Arrays.sort(hits, 0, windowSize, (a, b) -> {
+            int cmp = hitToScriptData.get(a.doc).groupValue.compareTo(hitToScriptData.get(b.doc).groupValue);
+            if (cmp == 0) {
+                return SCORE_DOC_COMPARATOR.compare(a, b);
+            }
+            return cmp;
+        });
+
+        final Map<BytesRef, Integer> groupPositions = new HashMap<>();
+
+        for (int hitIx = 0; hitIx < windowSize; hitIx++) {
+            ScoreDoc hit = hits[hitIx];
+            hitToScriptData.get(hit.doc).position = groupPositions.compute(hitToScriptData.get(hit.doc).groupValue, (k, curPos) -> {
                 if (curPos == null) {
                     return 0;
                 }
                 return ++curPos;
             });
-
-            // Calculate new score
-            declineScript.setDocument(docId);
-            Map<String, Object> scriptParams = declineScript.getParams();
-            scriptParams.put(POSITION_PARAMETER_NAME, (double) groupPos);
-            hit.score = hit.score * (float) declineScript.runAsDouble();
         }
 
-        // Sort hits by new scores
+        // Sort by document ordinal again to be able to execute script
+        Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
+
+        for (int hitIx = 0; hitIx < windowSize; hitIx++) {
+            ScoreDoc hit = hits[hitIx];
+            // Calculate new score
+            HitScriptData hitScriptData = hitToScriptData.get(hit.doc);
+            hitScriptData.script.setDocument(hitScriptData.docId);
+            Map<String, Object> scriptParams = hitScriptData.script.getParams();
+            scriptParams.put(POSITION_PARAMETER_NAME, (double) hitScriptData.position);
+            hit.score = hit.score * (float) hitScriptData.script.runAsDouble();
+        }
+
+        // Finally sort hits by new scores
         Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
         float minRescoredScore = hits[windowSize - 1].score;
 
