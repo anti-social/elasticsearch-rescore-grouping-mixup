@@ -20,9 +20,7 @@
 package company.evo.elasticsearch.rescore;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.settings.Settings;
@@ -32,12 +30,16 @@ import org.elasticsearch.index.query.QueryBuilders;
 import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
+import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.test.ESIntegTestCase;
+import org.hamcrest.Matchers;
 
 import static org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_NUMBER_OF_SHARDS;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
 public class GroupingMixupRescorerIT extends ESIntegTestCase {
@@ -119,6 +121,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "1", "4", "2", "3");
+        assertOrderedSearchHitScores(resp, 1.2798426F, 0.51189536F, 0.48992145F, 0.44233876F);
     }
 
     public void testRescoringHitsAnotherOrder() throws IOException {
@@ -147,6 +150,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "3", "2", "4", "1");
+        assertOrderedSearchHitScores(resp, 1.0014079F, 0.6994759F, 0.2334607F, 0.11673035F);
     }
 
     public void testRescoringWithCustomScriptParams() throws IOException {
@@ -178,6 +182,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "1", "4", "3", "2");
+        assertOrderedSearchHitScores(resp, 1.2798425F, 0.5118953F, 0.50170016F, 0.4899214F);
     }
 
     public void testRescoringWithSmallSize() throws IOException {
@@ -203,6 +208,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(1).getId(), hits.getAt(1).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "1", "4");
+        assertOrderedSearchHitScores(resp, 1.2798426F, 0.51189536F);
     }
 
     public void testRescoringWithSmallRescoreWindow() throws IOException {
@@ -229,6 +235,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "1", "4", "3", "2");
+        assertOrderedSearchHitScores(resp, 1.2798426F, 0.51189536F, 0.44233876F, 0.44233876F);
     }
 
     private void createIndexAndPopulateDocs() throws IOException {
@@ -269,5 +276,17 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
                 .actionGet();
         ensureYellow();
         refresh();
+    }
+
+    public static void assertOrderedSearchHitScores(SearchResponse searchResponse, float... scores) {
+        SearchHit[] hits = searchResponse.getHits().getHits();
+        assertThat("Expected different hits length.",
+                hits.length, greaterThanOrEqualTo(scores.length));
+
+        float[] hitScores = new float[hits.length];
+        for (int i = 0; i < scores.length; i++) {
+            hitScores[i] = hits[i].getScore();
+        }
+        assertThat("Expected different hit scores", hitScores, equalTo(scores));
     }
 }

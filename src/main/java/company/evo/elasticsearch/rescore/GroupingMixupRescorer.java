@@ -155,7 +155,8 @@ public class GroupingMixupRescorer implements Rescorer {
             });
         }
 
-        // Sort by document ordinal again to be able to execute script
+        // Sort by document ordinal again to be able to execute script.
+        // `setDocument` must be called with increased document ordinals!!!
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
