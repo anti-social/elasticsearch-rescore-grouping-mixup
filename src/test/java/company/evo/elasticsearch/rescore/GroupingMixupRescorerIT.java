@@ -29,6 +29,7 @@ import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.functionscore.ScoreFunctionBuilders;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHits;
@@ -36,9 +37,7 @@ import org.elasticsearch.test.ESIntegTestCase;
 
 import static org.elasticsearch.cluster.metadata.IndexMetaData.SETTING_NUMBER_OF_SHARDS;
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertHitCount;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertOrderedSearchHits;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
 
 @ESIntegTestCase.ClusterScope(scope = ESIntegTestCase.Scope.SUITE)
 public class GroupingMixupRescorerIT extends ESIntegTestCase {
@@ -120,6 +119,34 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
         logger.info(DEBUG_SEP);
         assertOrderedSearchHits(resp, "1", "4", "2", "3");
+    }
+
+    public void testRescoringHitsAnotherOrder() throws IOException {
+        createIndexAndPopulateDocs();
+
+        SearchResponse resp = client().prepareSearch()
+                .setQuery(
+                        QueryBuilders.matchQuery("name", "quick huge fox")
+                )
+                .setRescorer(
+                        new GroupingMixupRescorerBuilder(
+                                "company_id",
+                                new Script(
+                                        ScriptType.INLINE,
+                                        "grouping_mixup_scripts",
+                                        "position_recip",
+                                        Collections.emptyMap()))
+                                .windowSize(5))
+                .execute()
+                .actionGet();
+        assertHitCount(resp, 4);
+        SearchHits hits = resp.getHits();
+        logger.info("{} {}", hits.getAt(0).getId(), hits.getAt(0).getScore());
+        logger.info("{} {}", hits.getAt(1).getId(), hits.getAt(1).getScore());
+        logger.info("{} {}", hits.getAt(2).getId(), hits.getAt(2).getScore());
+        logger.info("{} {}", hits.getAt(3).getId(), hits.getAt(3).getScore());
+        logger.info(DEBUG_SEP);
+        assertOrderedSearchHits(resp, "3", "2", "4", "1");
     }
 
     public void testRescoringWithCustomScriptParams() throws IOException {
