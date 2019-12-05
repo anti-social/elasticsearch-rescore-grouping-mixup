@@ -19,6 +19,8 @@
 
 package company.evo.elasticsearch.rescore;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
@@ -58,6 +60,21 @@ public class GroupingMixupRescorer implements Rescorer {
         return a.doc - b.doc;
     };
 
+    private final Logger logger = LogManager.getLogger(getClass());
+
+    private static class HitScriptData {
+        final int docId;
+        final BytesRef groupValue;
+        final ScoreScript script;
+        int position = 0;
+
+        HitScriptData(int docId, BytesRef groupValue, ScoreScript script) {
+            this.docId = docId;
+            this.groupValue = groupValue;
+            this.script = script;
+        }
+    }
+
     @Override
     public TopDocs rescore(TopDocs topDocs, IndexSearcher searcher, RescoreContext rescoreContext)
             throws IOException
@@ -74,94 +91,98 @@ public class GroupingMixupRescorer implements Rescorer {
         if (windowSize <= 0) {
             return topDocs;
         }
+
+        // Sort by document ordinal to fetch group values
         Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
 
         List<LeafReaderContext> readerContexts = searcher.getIndexReader().leaves();
-        int currentReaderIx = 0;
-        LeafReaderContext currentReaderContext = readerContexts.get(currentReaderIx);
+        int currentReaderIx = -1;
+        int currentReaderEndDoc = 0;
+        LeafReaderContext currentReaderContext = null;
+        SortedBinaryDocValues groupValues = null;
+        ScoreScript declineScript = null;
 
-        SortedBinaryDocValues fieldValues = rescoreCtx.groupingField
-                .load(currentReaderContext)
-                .getBytesValues();
-
-        final Map<Integer, BytesRef> groupValues = new HashMap<>(windowSize);
-        final Map<Integer, LeafReaderContext> docLeafContexts = new HashMap<>(windowSize);
-        final Map<LeafReaderContext, ScoreScript> leafScripts = new HashMap<>(readerContexts.size());
-
-        BytesRefBuilder valueBuilder = new BytesRefBuilder();
+        BytesRefBuilder groupValueBuilder = new BytesRefBuilder();
+        final Map<Integer, HitScriptData> hitToScriptData = new HashMap<>();
 
         for (int hitIx = 0; hitIx < windowSize; hitIx++) {
             ScoreDoc hit = hits[hitIx];
             LeafReaderContext prevReaderContext = currentReaderContext;
 
             // find segment that contains current document
-            int docId = hit.doc - currentReaderContext.docBase;
-            while (docId >= currentReaderContext.reader().maxDoc()) {
+            while (hit.doc >= currentReaderEndDoc) {
                 currentReaderIx++;
                 currentReaderContext = readerContexts.get(currentReaderIx);
-                docId = hit.doc - currentReaderContext.docBase;
+                currentReaderEndDoc = currentReaderContext.docBase + currentReaderContext.reader().maxDoc();
             }
 
-            docLeafContexts.put(hit.doc, currentReaderContext);
-            leafScripts.put(currentReaderContext, rescoreCtx.declineScript.newInstance(currentReaderContext));
-
+            int docId = hit.doc - currentReaderContext.docBase;
             if (currentReaderContext != prevReaderContext) {
-                fieldValues = rescoreCtx.groupingField
+                groupValues = rescoreCtx.groupingField
                         .load(currentReaderContext)
                         .getBytesValues();
+                declineScript = rescoreCtx.declineScript.newInstance(currentReaderContext);
             }
-
-            if (fieldValues.advanceExact(docId)) {
-                valueBuilder.copyBytes(fieldValues.nextValue());
+            if (groupValues.advanceExact(docId)) {
+                groupValueBuilder.copyBytes(groupValues.nextValue());
             } else {
-                valueBuilder.clear();
+                groupValueBuilder.clear();
             }
-            groupValues.put(hit.doc, valueBuilder.toBytesRef());
+            hitToScriptData.put(
+                    hit.doc,
+                    new HitScriptData(docId, groupValueBuilder.toBytesRef(), declineScript)
+            );
         }
 
         // Sort by group value
         Arrays.sort(hits, 0, windowSize, (a, b) -> {
-            int cmp = groupValues.get(a.doc).compareTo(groupValues.get(b.doc));
+            int cmp = hitToScriptData.get(a.doc).groupValue.compareTo(hitToScriptData.get(b.doc).groupValue);
             if (cmp == 0) {
                 return SCORE_DOC_COMPARATOR.compare(a, b);
             }
             return cmp;
         });
 
-        // Calculate new scores
-        double pos = 0;
-        float minOrigScore = hits[windowSize - 1].score;
-        BytesRef curGroupValue = null, prevGroupValue = null;
-        for (int i = 0; i < windowSize; i++) {
-            ScoreDoc hit = hits[i];
-            curGroupValue = groupValues.get(hit.doc);
-            if (!curGroupValue.equals(prevGroupValue)) {
-                pos = 0;
-            }
+        final Map<BytesRef, Integer> groupPositions = new HashMap<>();
 
-            LeafReaderContext leafContext = docLeafContexts.get(hit.doc);
-            ScoreScript boostScript = leafScripts.get(leafContext);
-            boostScript.setDocument(hit.doc - leafContext.docBase);
-            Map<String, Object> scriptParams = boostScript.getParams();
-            scriptParams.put(POSITION_PARAMETER_NAME, pos);
-            hit.score = hit.score * (float) boostScript.execute();
-
-            pos++;
-            prevGroupValue = curGroupValue;
+        for (int hitIx = 0; hitIx < windowSize; hitIx++) {
+            ScoreDoc hit = hits[hitIx];
+            hitToScriptData.get(hit.doc).position = groupPositions.compute(hitToScriptData.get(hit.doc).groupValue, (k, curPos) -> {
+                if (curPos == null) {
+                    return 0;
+                }
+                return ++curPos;
+            });
         }
+
+        // Sort by document ordinal again to be able to execute script.
+        // `setDocument` must be called with increased document ordinals!!!
+        Arrays.sort(hits, 0, windowSize, DOC_COMPARATOR);
+
+        for (int hitIx = 0; hitIx < windowSize; hitIx++) {
+            ScoreDoc hit = hits[hitIx];
+            // Calculate new score
+            HitScriptData hitScriptData = hitToScriptData.get(hit.doc);
+            hitScriptData.script.setDocument(hitScriptData.docId);
+            Map<String, Object> scriptParams = hitScriptData.script.getParams();
+            scriptParams.put(POSITION_PARAMETER_NAME, (double) hitScriptData.position);
+            hit.score = hit.score * (float) hitScriptData.script.execute();
+        }
+
+        // Finally sort hits by new scores
+        Arrays.sort(hits, 0, windowSize, SCORE_DOC_COMPARATOR);
+        float minRescoredScore = hits[windowSize - 1].score;
 
         // Decrease scores for hits that were not rescored.
         // We must do that to satisfy elasticsearch's assertion
-        float lastDeltaScore = minOrigScore - hits[windowSize - 1].score;
-        if (lastDeltaScore > 0.0F) {
+        if (hits.length > windowSize) {
+            float maxNonRescoredScore = hits[windowSize].score;
+            float deltaScore = maxNonRescoredScore - minRescoredScore;
             for (int i = windowSize; i < hits.length; i++) {
                 ScoreDoc hit = hits[i];
-                hit.score -= lastDeltaScore;
+                hit.score -= deltaScore;
             }
         }
-
-        // Sort hits by new scores
-        Arrays.sort(hits, SCORE_DOC_COMPARATOR);
 
         return new TopDocs(topDocs.totalHits, hits);
     }
@@ -174,8 +195,8 @@ public class GroupingMixupRescorer implements Rescorer {
     }
 
     @Override
-        public void extractTerms(IndexSearcher searcher, RescoreContext rescoreContext, Set<Term> termsSet) {
-            // Since we don't use queries there are no terms to extract.
+    public void extractTerms(IndexSearcher searcher, RescoreContext rescoreContext, Set<Term> termsSet) {
+        // Since we don't use queries there are no terms to extract.
     }
 
     static class Context extends RescoreContext {
