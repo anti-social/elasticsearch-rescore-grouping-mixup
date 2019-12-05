@@ -194,11 +194,6 @@ public class GroupingMixupRescorer implements Rescorer {
         return sourceExplanation;
     }
 
-    @Override
-    public void extractTerms(IndexSearcher searcher, RescoreContext rescoreContext, Set<Term> termsSet) {
-        // Since we don't use queries there are no terms to extract.
-    }
-
     static class Context extends RescoreContext {
         private IndexFieldData<?> groupingField;
         private final ScoreScript.LeafFactory declineScript;
