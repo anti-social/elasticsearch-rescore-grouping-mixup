@@ -70,14 +70,14 @@ name: Norco STORM 4.1
 manufacturer: norco
 rank: 4.1
 '
-curl -X PUT -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop/_doc/5?routing=norco' --data-binary '---
+curl -X PUT -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop/_doc/5?routing=gt' --data-binary '---
 name: GT STOMPER MAX 26
 manufacturer: gt
 rank: 4.0
 '
 ```
 
-Ok, let's search the bikes:
+Ok, let's search our bikes:
 
 ```
 curl -X GET -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop/_search' --data-binary '---
@@ -99,6 +99,7 @@ hits:
     _type: "_doc"
     _id: "1"
     _score: 4.5
+    _routing: "giant"
     _source:
       name: "Giant XTC jr 26+"
       manufacturer: "giant"
@@ -107,6 +108,7 @@ hits:
     _type: "_doc"
     _id: "2"
     _score: 4.4
+    _routing: "giant"
     _source:
       name: "Giant XTC jr 24+"
       manufacturer: "giant"
@@ -115,6 +117,7 @@ hits:
     _type: "_doc"
     _id: "3"
     _score: 4.2
+    _routing: "norco"
     _source:
       name: "Norco CHARGER 4.1"
       manufacturer: "norco"
@@ -123,6 +126,7 @@ hits:
     _type: "_doc"
     _id: "4"
     _score: 4.1
+    _routing: "norco"
     _source:
       name: "Norco STORM 4.1"
       manufacturer: "norco"
@@ -131,6 +135,7 @@ hits:
     _type: "_doc"
     _id: "5"
     _score: 4.0
+    _routing: "gt"
     _source:
       name: "GT STOMPER MAX 26"
       manufacturer: "gt"
@@ -186,7 +191,7 @@ hits:
     _type: "_doc"
     _id: "5"
     _score: 4.0
-    _routing: "norco"
+    _routing: "gt"
     _source:
       name: "GT STOMPER MAX 26"
       manufacturer: "gt"
