@@ -24,6 +24,7 @@ import org.apache.lucene.index.LeafReaderContext;
 
 import org.elasticsearch.script.ScoreScript;
 import org.elasticsearch.search.lookup.SearchLookup;
+import org.elasticsearch.script.ScriptFactory;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,7 +57,15 @@ public class PositionRecipScript extends ScoreScript {
         return m / (a * (Double) variables.get(GroupingMixupRescorer.POSITION_PARAMETER_NAME) + b) + c;
     }
 
-    public static class PositionRecipFactory implements Factory {
+    public static class PositionRecipFactory implements ScoreScript.Factory, ScriptFactory {
+
+        @Override
+        public boolean isResultDeterministic() {
+            // PositionRecipScript does not use deterministic APIs so that means that results
+            // are not cachable? @todo
+            return true;
+        }
+
         @Override
         public LeafFactory newFactory(Map<String, Object> params, SearchLookup lookup) {
             double m = params.containsKey("m") ? (Double) params.get("m") : 1.0;
