@@ -52,7 +52,7 @@ public class PositionRecipScript extends ScoreScript {
     }
 
     @Override
-    public double execute() {
+    public double execute(ExplanationHolder explanation) {
         return m / (a * (Double) variables.get(GroupingMixupRescorer.POSITION_PARAMETER_NAME) + b) + c;
     }
 

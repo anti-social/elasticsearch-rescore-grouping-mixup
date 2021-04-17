@@ -166,7 +166,7 @@ public class GroupingMixupRescorer implements Rescorer {
             hitScriptData.script.setDocument(hitScriptData.docId);
             Map<String, Object> scriptParams = hitScriptData.script.getParams();
             scriptParams.put(POSITION_PARAMETER_NAME, (double) hitScriptData.position);
-            hit.score = hit.score * (float) hitScriptData.script.execute();
+            hit.score = hit.score * (float) hitScriptData.script.execute(null);
         }
 
         // Finally sort hits by new scores
