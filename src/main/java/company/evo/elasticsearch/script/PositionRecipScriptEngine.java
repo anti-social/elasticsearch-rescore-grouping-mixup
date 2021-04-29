@@ -22,13 +22,19 @@
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.ScoreScript;
-
+import java.util.Set;
+import java.util.Collections;
 import java.util.Map;
 
 public class PositionRecipScriptEngine implements ScriptEngine {
     @Override
     public String getType() {
         return "grouping_mixup_scripts";
+    }
+
+    @Override
+    public Set<ScriptContext<?>> getSupportedContexts() {
+        return Collections.singleton(ScoreScript.CONTEXT);
     }
 
     @Override

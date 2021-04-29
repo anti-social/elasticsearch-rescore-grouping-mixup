@@ -49,7 +49,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
            );
     static {
         PARSER.declareString(ConstructingObjectParser.constructorArg(), GROUPING_FIELD_FIELD);
-        PARSER.declareNamedObjects(ConstructingObjectParser.constructorArg(), (p, c, n) -> Script.parse(p), RESCORE_SCRIPT_FIELD);
+        PARSER.declareObject(ConstructingObjectParser.constructorArg(), (p, c) -> Script.parse(p), RESCORE_SCRIPT_FIELD);
     }
 
     private final String groupByField;
@@ -95,8 +95,7 @@ public class GroupingMixupRescorerBuilder extends RescorerBuilder<GroupingMixupR
     public RescoreContext innerBuildContext(int windowSize, QueryShardContext context) {
         IndexFieldData<?> groupingField =
                 this.groupByField == null ? null : context.getForField(context.fieldMapper(this.groupByField));
-        ScoreScript.LeafFactory scriptFactory = context.getScriptService()
-                .compile(rescoreScript, ScoreScript.CONTEXT)
+        ScoreScript.LeafFactory scriptFactory = context.compile(rescoreScript, ScoreScript.CONTEXT)
                 .newFactory(rescoreScript.getParams(), context.lookup());
         return new GroupingMixupRescorer.Context(windowSize, groupingField, scriptFactory);
     }
