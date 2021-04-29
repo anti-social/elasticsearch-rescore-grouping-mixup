@@ -1,4 +1,4 @@
-[![Travis Status](https://travis-ci.org/anti-social/elasticsearch-rescore-grouping-mixup.svg?branch=master)](https://travis-ci.org/anti-social/elasticsearch-rescore-grouping-mixup)
+[![Build](https://github.com/anti-social/elasticsearch-rescore-grouping-mixup/actions/workflows/java.yaml/badge.svg)](https://github.com/anti-social/elasticsearch-rescore-grouping-mixup/actions/workflows/java.yaml)
 
 # Grouping mixup rescorer
 
