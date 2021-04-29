@@ -11,95 +11,105 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up JDK
-      uses: actions/setup-java@v1
-      with:
-        java-version: 15
-
-    - name: Cache gradle wrapper
-      uses: actions/cache@v2
-      with:
-        path: ~/.gradle/wrapper
-        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-        restore-keys: ${{ runner.os }}-gradle-wrapper
-
-    - name: Cache dependencies
-      uses: actions/cache@v2
-      with:
-        path: ~/.gradle/caches
-        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
-        restore-keys: ${{ runner.os }}-gradle
-
-    - name: Assemble and run tests
-      run: |
+    - run: |
         set -eux
-        if [[ "$GITHUB_REF" == refs/tags/v*-es* ]]; then
-          RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*-es.*\)/\1/')
-          ES_VERSION=$(echo $RELEASE_VERSION | sed 's/.*-es\(.*\)/\1/')
-          GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION"
-        fi
-        ./gradlew assemble $GRADLE_ARGS
-        if [[ ! -z "${RELEASE_VERSION-}" ]]; then
-          echo $RELEASE_VERSION > build/distributions/release.version
-        fi
-        ls -lh build/distributions
-        ./gradlew test $GRADLE_ARGS
-        ./gradlew integTest $GRADLE_ARGS
+        echo $GITHUB_ENV
+        echo "TEST_VAR=123" >> $GITHUB_ENV
 
-    - name: Upload plugin artifact
-      uses: actions/upload-artifact@v2
-      if: |
-        github.event_name == 'push' &&
-        startsWith(github.ref, 'refs/tags/v') &&
-        contains(github.ref, '-es')
-      with:
-        name: elasticsearch-plugin
-        path: |
-          build/distributions/release.version
-          build/distributions/*.zip
+    - run: |
+        set -eux
+        echo TEST_VAR=${{ env.TEST_VAR }}
 
-  release_es_plugin:
-    runs-on: ubuntu-latest
-    if: |
-      github.event_name == 'push' &&
-      startsWith(github.ref, 'refs/tags/v') &&
-      contains(github.ref, '-es')
-    needs:
-    - build
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up JDK
-      uses: actions/setup-java@v1
-      with:
-        java-version: 15
-
-    - uses: actions/download-artifact@v2
-      with:
-        name: elasticsearch-plugin
-
-    - name: Create release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
-        draft: false
-        prerelease: true
-
-    - name: Fetch release version
-      run: |
-        echo "RELEASE_VERSION=$(cat build/distributions/release.version)" >> $GITHUB_ENV
-
-    - name: Upload release
-      id: upload-release
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/distributions/rescore-grouping-mixup-${{ env.RELEASE_VERSION }}.zip
-        asset_name: my-artifact.zip
-        asset_content_type: application/zip
+#    - name: Set up JDK
+#      uses: actions/setup-java@v1
+#      with:
+#        java-version: 15
+#
+#    - name: Cache gradle wrapper
+#      uses: actions/cache@v2
+#      with:
+#        path: ~/.gradle/wrapper
+#        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+#        restore-keys: ${{ runner.os }}-gradle-wrapper
+#
+#    - name: Cache dependencies
+#      uses: actions/cache@v2
+#      with:
+#        path: ~/.gradle/caches
+#        key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
+#        restore-keys: ${{ runner.os }}-gradle
+#
+#    - name: Assemble and run tests
+#      run: |
+#        set -eux
+#        if [[ "$GITHUB_REF" == refs/tags/v*-es* ]]; then
+#          RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*-es.*\)/\1/')
+#          ES_VERSION=$(echo $RELEASE_VERSION | sed 's/.*-es\(.*\)/\1/')
+#          GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION -Prelease=true"
+#        fi
+#        ./gradlew assemble $GRADLE_ARGS
+#        if [[ ! -z "${RELEASE_VERSION-}" ]]; then
+#          echo $RELEASE_VERSION > build/distributions/release.version
+#        fi
+#        ls -lh build/distributions
+#        ./gradlew test $GRADLE_ARGS
+#        ./gradlew integTest $GRADLE_ARGS
+#
+#    - name: Upload plugin artifact
+#      uses: actions/upload-artifact@v2
+#      if: |
+#        github.event_name == 'push' &&
+#        startsWith(github.ref, 'refs/tags/v') &&
+#        contains(github.ref, '-es')
+#      with:
+#        name: elasticsearch-plugin
+#        path: |
+#          build/distributions/release.version
+#          build/distributions/*.zip
+#
+#  release_es_plugin:
+#    runs-on: ubuntu-latest
+#    if: |
+#      github.event_name == 'push' &&
+#      startsWith(github.ref, 'refs/tags/v') &&
+#      contains(github.ref, '-es')
+#    needs:
+#    - build
+#    steps:
+#    - uses: actions/checkout@v2
+#
+#    - name: Set up JDK
+#      uses: actions/setup-java@v1
+#      with:
+#        java-version: 15
+#
+#    - uses: actions/download-artifact@v2
+#      with:
+#        name: elasticsearch-plugin
+#
+#    - name: Create release
+#      id: create_release
+#      uses: actions/create-release@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        tag_name: ${{ github.ref }}
+#        release_name: Release ${{ github.ref }}
+#        draft: false
+#        prerelease: true
+#
+#    - name: Fetch release version
+#      run: |
+#        RELEASE_VERSION=$(cat build/distributions/release.version)
+#        echo "RELEASE_ARTIFACT_NAME=rescore-grouping-mixup-$RELEASE_VERSION.zip" >> $GITHUB_ENV
+#
+#    - name: Upload release
+#      id: upload-release
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: build/distributions/${{ env.RELEASE_ARTIFACT_NAME }}
+#        asset_name: ${{ env.RELEASE_ARTIFACT_NAME }}
+#        asset_content_type: application/zip
