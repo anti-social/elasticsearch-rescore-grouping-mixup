@@ -90,7 +90,7 @@ query:
 
 You should see next results:
 
-```
+```yaml
 hits:
   total: 5
   max_score: 4.5
@@ -164,7 +164,7 @@ rescore:
 
 Now all the manufacturers should be satisfied:
 
-```
+```yaml
 hits:
   total: 5
   max_score: 4.5
@@ -232,7 +232,7 @@ Just look at the plot of the function with default values:
 
 Also you can specify these variables via script parameters, for example:
 
-```
+```yaml
 decline_script:
   lang: grouping_mixup_scripts
   source: position_recip
