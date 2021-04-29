@@ -26,13 +26,15 @@ jobs:
     - name: Assemble and run tests
       run: |
         set -eux
-        if [[ $GITHUB_REF == refs/tags/v*-es* ]]; then
+        if [[ "$GITHUB_REF" == refs/tags/v*-es* ]]; then
           RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*-es.*\)/\1/')
           ES_VERSION=$(echo $RELEASE_VERSION | sed 's/.*-es\(.*\)/\1/')
           GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION"
         fi
         ./gradlew assemble $GRADLE_ARGS
-        echo $RELEASE_VERSION > build/distributions/release.version
+        if [[ ! -z "$RELEASE_VERSION" ]]; then
+          echo $RELEASE_VERSION > build/distributions/release.version
+        fi
         ls -lh build/distributions
         ./gradlew test $GRADLE_ARGS
         ./gradlew integTest $GRADLE_ARGS
