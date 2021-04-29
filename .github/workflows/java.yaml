@@ -43,8 +43,8 @@ jobs:
           echo $RELEASE_VERSION > build/distributions/release.version
         fi
         ls -lh build/distributions
-        ./gradlew test $GRADLE_ARGS
-        ./gradlew integTest $GRADLE_ARGS
+        # ./gradlew test $GRADLE_ARGS
+        # ./gradlew integTest $GRADLE_ARGS
 
     - name: Upload plugin artifact
       uses: actions/upload-artifact@v2
@@ -67,13 +67,6 @@ jobs:
     needs:
     - build
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Set up JDK
-      uses: actions/setup-java@v1
-      with:
-        java-version: 15
-
     - uses: actions/download-artifact@v2
       with:
         name: elasticsearch-plugin
@@ -91,6 +84,9 @@ jobs:
 
     - name: Fetch release version
       run: |
+        set -eux
+        pwd
+        ls -l
         RELEASE_VERSION=$(cat build/distributions/release.version)
         echo "Found release: $RELEASE_VERSION"
         echo "RELEASE_ARTIFACT_NAME=rescore-grouping-mixup-$RELEASE_VERSION.zip" >> $GITHUB_ENV
