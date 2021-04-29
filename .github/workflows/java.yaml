@@ -91,7 +91,9 @@ jobs:
 
     - name: Fetch release version
       run: |
-        echo "RELEASE_VERSION=$(cat build/distributions/release.version)" >> $GITHUB_ENV
+        RELEASE_VERSION=$(cat build/distributions/release.version)
+        echo "Found release: $RELEASE_VERSION"
+        echo "RELEASE_ARTIFACT_NAME=rescore-grouping-mixup-$RELEASE_VERSION.zip" >> $GITHUB_ENV
 
     - name: Upload release
       id: upload-release
@@ -100,6 +102,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: build/distributions/rescore-grouping-mixup-${{ env.RELEASE_VERSION }}.zip
-        asset_name: my-artifact.zip
+        asset_path: build/distributions/${{ env.RELEASE_ARTIFACT_NAME }}
+        asset_name: ${{ env.RELEASE_ARTIFACT_NAME }}
         asset_content_type: application/zip
