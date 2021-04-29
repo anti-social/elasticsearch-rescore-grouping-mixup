@@ -16,7 +16,14 @@ jobs:
       with:
         java-version: 15
 
-    - name: Cache Gradle packages
+    - name: Cache gradle wrapper
+      uses: actions/cache@v2
+      with:
+        path: ~/.gradle/wrapper
+        key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+        restore-keys: ${{ runner.os }}-gradle-wrapper
+
+    - name: Cache dependencies
       uses: actions/cache@v2
       with:
         path: ~/.gradle/caches
