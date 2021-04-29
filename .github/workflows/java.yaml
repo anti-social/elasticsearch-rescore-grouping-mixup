@@ -32,7 +32,7 @@ jobs:
           GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION"
         fi
         ./gradlew assemble $GRADLE_ARGS
-        if [[ ! -z "$RELEASE_VERSION" ]]; then
+        if [[ ! -z "${RELEASE_VERSION-}" ]]; then
           echo $RELEASE_VERSION > build/distributions/release.version
         fi
         ls -lh build/distributions
