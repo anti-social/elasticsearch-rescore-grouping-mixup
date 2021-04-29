@@ -61,8 +61,6 @@ public class PositionRecipScript extends ScoreScript {
 
         @Override
         public boolean isResultDeterministic() {
-            // PositionRecipScript does not use deterministic APIs so that means that results
-            // are not cachable? @todo
             return true;
         }
 

@@ -17,11 +17,12 @@
  * under the License.
  */
 
- package company.evo.elasticsearch.script;
+package company.evo.elasticsearch.script;
 
 import org.elasticsearch.script.ScriptContext;
 import org.elasticsearch.script.ScriptEngine;
 import org.elasticsearch.script.ScoreScript;
+
 import java.util.Set;
 import java.util.Collections;
 import java.util.Map;
