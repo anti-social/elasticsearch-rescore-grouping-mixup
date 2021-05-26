@@ -18,6 +18,6 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
 setProperty("licenseFile", project.rootProject.file("LICENSE.txt"))
 setProperty("noticeFile", project.rootProject.file("NOTICE.txt"))
 
-tasks.named("validateNebulaPom") {
+tasks.named("validateElasticPom") {
     enabled = false
 }
