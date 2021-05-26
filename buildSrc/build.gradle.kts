@@ -24,7 +24,21 @@ class GitDescribe(val describe: String) {
     fun esVersion() = if (hasProperty("esVersion")) {
         property("esVersion")
     } else {
-        es
+        // When adopting to new Elasticsearch version
+        // create `buildSrc/es.version` file so IDE can fetch correct version of Elasticsearch
+        val esVersionFromFile = project.projectDir.toPath().resolve("es.version").toFile().let {
+            if (it.exists()) {
+                val esVersionFromFile = it.readText().trim()
+                if (!esVersionFromFile.startsWith('#')) {
+                    esVersionFromFile
+                } else {
+                    null
+                }
+            } else {
+                null
+            }
+        }
+        esVersionFromFile ?: es
     }
 
     fun pluginVersion() = buildString {
