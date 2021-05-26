@@ -22,7 +22,6 @@ package company.evo.elasticsearch.rescore;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.lucene.index.LeafReaderContext;
-import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Explanation;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.ScoreDoc;
@@ -41,7 +40,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 
 public class GroupingMixupRescorer implements Rescorer {
     public static final String POSITION_PARAMETER_NAME = "_pos";
