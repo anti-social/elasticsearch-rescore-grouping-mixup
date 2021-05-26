@@ -18,15 +18,6 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
 setProperty("licenseFile", project.rootProject.file("LICENSE.txt"))
 setProperty("noticeFile", project.rootProject.file("NOTICE.txt"))
 
-// Cannot download plugin from bintray
-tasks.named("loggerUsageCheck") {
-    enabled = false
-}
-
 tasks.named("validateNebulaPom") {
-    enabled = false
-}
-
-tasks.named("testingConventions") {
     enabled = false
 }
