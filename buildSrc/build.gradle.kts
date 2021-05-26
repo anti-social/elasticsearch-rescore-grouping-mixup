@@ -10,7 +10,7 @@ plugins {
 val defaultEsVersion = readVersion("es-default.version")
 
 val gitDescribe = grgit.describe(mapOf("match" to listOf("v*-es*"), "tags" to true))
-    ?: "v0.0.0-$defaultEsVersion"
+    ?: "v0.0.0-es$defaultEsVersion"``
 
 class GitDescribe(val describe: String) {
     private val VERSION_REGEX = "[0-9]+\\.[0-9]+\\.[0-9]+(\\-(alpha|beta|rc)\\-[0-9]+)?"
