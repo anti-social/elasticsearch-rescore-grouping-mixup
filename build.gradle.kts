@@ -4,6 +4,9 @@ plugins {
     id("elasticsearch.esplugin")
 }
 
+group = "dev.evo.elasticsearch"
+version = Versions.project
+
 configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
     name = "rescore-grouping-mixup"
     description = "Adds rescorer for mixing up search hits inside their groups."
@@ -14,4 +17,15 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
 setProperty("licenseFile", project.rootProject.file("LICENSE.txt"))
 setProperty("noticeFile", project.rootProject.file("NOTICE.txt"))
 
-version = Versions.project
+// Cannot download plugin from bintray
+tasks.named("loggerUsageCheck") {
+    enabled = false
+}
+
+tasks.named("validateNebulaPom") {
+    enabled = false
+}
+
+tasks.named("testingConventions") {
+    enabled = false
+}
