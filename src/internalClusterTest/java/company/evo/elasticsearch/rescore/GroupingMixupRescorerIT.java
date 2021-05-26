@@ -20,16 +20,19 @@
 package company.evo.elasticsearch.rescore;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import company.evo.elasticsearch.plugin.GroupingMixupPlugin;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.index.query.MatchAllQueryBuilder;
 import org.elasticsearch.index.query.MatchQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.plugins.Plugin;
 import org.elasticsearch.script.Script;
 import org.elasticsearch.script.ScriptType;
 import org.elasticsearch.search.SearchHit;
@@ -50,6 +53,11 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
 
     private static final MatchQueryBuilder queryBuilder = QueryBuilders
             .matchQuery("name", "the quick brown");
+
+    @Override
+    protected Collection<Class<? extends Plugin>> nodePlugins() {
+        return Collections.singletonList(GroupingMixupPlugin.class);
+    }
 
     public void testEmptyIndex() throws IOException {
         assertAcked(prepareCreate("test")
@@ -286,7 +294,6 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         assertThat("Different hits length.",
                 hits.length, greaterThanOrEqualTo(scores.length));
 
-        float[] hitScores = new float[hits.length];
         for (int i = 0; i < scores.length; i++) {
             assertThat(
                 String.format(Locale.ENGLISH, "Different hit scores at position %s", i),

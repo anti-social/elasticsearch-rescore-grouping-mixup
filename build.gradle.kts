@@ -2,6 +2,7 @@ plugins {
     java
     idea
     id("elasticsearch.esplugin")
+    id("elasticsearch.internal-cluster-test")
 }
 
 group = "dev.evo.elasticsearch"
