@@ -40,8 +40,7 @@ jobs:
       run: |
         set -eux
         ./gradlew assemble $GRADLE_ARGS
-        ./gradlew test $GRADLE_ARGS
-        ./gradlew integTest $GRADLE_ARGS
+        ./gradlew check $GRADLE_ARGS
 
     - name: Save release version
       if: |
