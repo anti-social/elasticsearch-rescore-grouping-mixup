@@ -22,6 +22,7 @@ package company.evo.elasticsearch.rescore;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 import org.elasticsearch.action.search.SearchResponse;
@@ -288,7 +289,7 @@ public class GroupingMixupRescorerIT extends ESIntegTestCase {
         float[] hitScores = new float[hits.length];
         for (int i = 0; i < scores.length; i++) {
             assertThat(
-                String.format("Different hit scores at position %s", i),
+                String.format(Locale.ENGLISH, "Different hit scores at position %s", i),
                 (double) hits[i].getScore(),
                 closeTo(scores[i], 1e-6)
             );
