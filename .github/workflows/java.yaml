@@ -1,6 +1,12 @@
 name: Java CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches:
+    - '**'
+    tags:
+    - 'v*-es*'
+  pull_request:
 
 env:
   GRADLE_ARGS: "--info --stacktrace"
@@ -28,30 +34,30 @@ jobs:
       with:
         path: ~/.gradle/caches
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
-        restore-keys: ${{ runner.os }}-gradle
+        restore-keys: ${{ runner.os }}-gradle-deps
 
     - name: Assemble and run tests
       run: |
         set -eux
-        if [[ "$GITHUB_REF" == refs/tags/v*-es* ]]; then
-          RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*-es.*\)/\1/')
-          ES_VERSION=$(echo $RELEASE_VERSION | sed 's/.*-es\(.*\)/\1/')
-          GRADLE_ARGS="$GRADLE_ARGS -PesVersion=$ES_VERSION -Prelease=true"
-        fi
         ./gradlew assemble $GRADLE_ARGS
-        if [[ ! -z "${RELEASE_VERSION-}" ]]; then
-          echo $RELEASE_VERSION > build/distributions/release.version
-        fi
-        ls -lh build/distributions
         ./gradlew test $GRADLE_ARGS
         ./gradlew integTest $GRADLE_ARGS
+
+    - name: Save release version
+      if: |
+        github.event_name == 'push' &&
+        startsWith(github.ref, 'refs/tags/v')
+      run: |
+        set -eux
+        RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*\)/\1/')
+        echo $RELEASE_VERSION > build/distributions/release.version
+        ls -lh build/distributions
 
     - name: Upload plugin artifact
       uses: actions/upload-artifact@v2
       if: |
         github.event_name == 'push' &&
-        startsWith(github.ref, 'refs/tags/v') &&
-        contains(github.ref, '-es')
+        startsWith(github.ref, 'refs/tags/v')
       with:
         name: elasticsearch-plugin
         path: |
@@ -62,8 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     if: |
       github.event_name == 'push' &&
-      startsWith(github.ref, 'refs/tags/v') &&
-      contains(github.ref, '-es')
+      startsWith(github.ref, 'refs/tags/v')
     needs:
     - build
     steps:
