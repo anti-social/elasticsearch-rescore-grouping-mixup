@@ -7,15 +7,18 @@ plugins {
     id("org.ajoberstar.grgit") version "4.1.0"
 }
 
+val defaultEsVersion = readVersion("es-default.version")
+
 val gitDescribe = grgit.describe(mapOf("match" to listOf("v*-es*"), "tags" to true))
-    ?: throw IllegalStateException("Could not find any version tag")
+    ?: "v0.0.0-$defaultEsVersion"
 
 class GitDescribe(val describe: String) {
     private val VERSION_REGEX = "[0-9]+\\.[0-9]+\\.[0-9]+(\\-(alpha|beta|rc)\\-[0-9]+)?"
 
-    private val matchedGroups = "v(?<plugin>${VERSION_REGEX})-es(?<es>${VERSION_REGEX})(-(?<abbrev>.*))?".toRegex()
-        .matchEntire(describe)!!
-        .groups
+    private val matchedGroups =
+        "v(?<plugin>${VERSION_REGEX})-es(?<es>${VERSION_REGEX})(-(?<abbrev>.*))?".toRegex()
+            .matchEntire(describe)!!
+            .groups
 
     val plugin = matchedGroups["plugin"]!!.value
     val es = matchedGroups["es"]!!.value
@@ -26,19 +29,7 @@ class GitDescribe(val describe: String) {
     } else {
         // When adopting to new Elasticsearch version
         // create `buildSrc/es.version` file so IDE can fetch correct version of Elasticsearch
-        val esVersionFromFile = project.projectDir.toPath().resolve("es.version").toFile().let {
-            if (it.exists()) {
-                val esVersionFromFile = it.readText().trim()
-                if (!esVersionFromFile.startsWith('#')) {
-                    esVersionFromFile
-                } else {
-                    null
-                }
-            } else {
-                null
-            }
-        }
-        esVersionFromFile ?: es
+        readVersion("es.version") ?: es
     }
 
     fun pluginVersion() = buildString {
@@ -95,4 +86,19 @@ idea {
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.32")
     implementation("org.elasticsearch.gradle:build-tools:${describe.esVersion()}")
+}
+
+// Utils
+
+fun readVersion(fileName: String): String? {
+    project.projectDir.toPath().resolve(fileName).toFile().let {
+        if (it.exists()) {
+            val esVersion = it.readText().trim()
+            if (!esVersion.startsWith('#')) {
+                return esVersion
+            }
+            return null
+        }
+        return null
+    }
 }
