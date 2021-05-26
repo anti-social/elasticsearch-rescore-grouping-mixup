@@ -7,10 +7,10 @@ plugins {
     id("org.ajoberstar.grgit") version "4.1.0"
 }
 
-val defaultEsVersion = readVersion("es-default.version")
+val minEsVersion = readVersion("es-minimum.version")
 
 val gitDescribe = grgit.describe(mapOf("match" to listOf("v*-es*"), "tags" to true))
-    ?: "v0.0.0-es$defaultEsVersion"
+    ?: "v0.0.0-es$minEsVersion"
 
 class GitDescribe(val describe: String) {
     private val VERSION_REGEX = "[0-9]+\\.[0-9]+\\.[0-9]+(\\-(alpha|beta|rc)\\-[0-9]+)?"
@@ -72,7 +72,7 @@ tasks.create("generateVersionProperties") {
 }
 
 repositories {
-    mavenLocal()
+    mavenCentral()
     gradlePluginPortal()
 }
 
