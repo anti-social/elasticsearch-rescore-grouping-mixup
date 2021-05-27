@@ -40,14 +40,13 @@ Create an index and put some documents into it:
 ```
 curl -X PUT -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop' --data-binary '---
 mappings:
-  _doc:
-    _routing:
-      required: true
-    properties:
-      name:
-        type: text
-      manufacturer:
-        type: keyword
+  _routing:
+    required: true
+  properties:
+    name:
+      type: text
+    manufacturer:
+      type: keyword
 '
 
 curl -X PUT -H 'Content-Type: application/yaml' 'localhost:9200/bikeshop/_doc/1?routing=giant' --data-binary '---

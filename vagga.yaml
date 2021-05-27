@@ -8,50 +8,53 @@ _default:
     volumes:
       /tmp: !Tmpfs { size: 200M }
       /work/.gradle/caches: !CacheDir gradle-cache
+      /work/.gradle/wrapper: !CacheDir gradle-wrapper
 
 containers:
   jdk:
     environ:
-      JAVA_HOME: /usr/lib/jvm/java-12-openjdk-amd64
+      JAVA_HOME: /usr/lib/jvm/java-16-openjdk-amd64
       GRADLE_USER_HOME: *gradle-home
     setup:
-    - !Ubuntu disco
+    - !Ubuntu focal
     - !UbuntuUniverse
     - !Install
       - ca-certificates-java
-      - openjdk-12-jdk-headless
-      - openjdk-12-source
-      - libatk-wrapper-java-jni
+      - openjdk-16-jdk-headless
       - git
     - !Sh update-ca-certificates
-    - !EnsureDir /opt/gradle
-    - !Unzip
-      url: https://services.gradle.org/distributions/gradle-5.6.2-bin.zip
-      subdir: gradle-5.6.2
-      path: /opt/gradle
-    - !Sh ln -s /opt/gradle/bin/gradle /usr/local/bin/gradle
+
+  elastic_version:
+    setup:
+    - !Ubuntu focal
+    - !Install
+      - git
+    - !Sh |
+        ES_VERSION=$(cat buildSrc/es-minimum.version)
 
   elastic:
     environ:
-      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+      ES_JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
     setup:
-    - !Ubuntu xenial
+    - !Ubuntu focal
     - !Install [ca-certificates]
     - !UbuntuRepo
-      url: https://artifacts.elastic.co/packages/6.x/apt
+      url: https://artifacts.elastic.co/packages/7.x/apt
       trusted: true
       suite: stable
       components: [main]
     - !Env
       ES_SKIP_SET_KERNEL_PARAMETERS: true
     - !Install
-      - openjdk-8-jdk-headless
-    - !Depends es.version
-    - !Sh apt-get install elasticsearch=$(cat es.version)
+      - openjdk-11-jdk-headless
+      - git
+    - !Depends buildSrc/es.version
+    - !Sh apt-get install elasticsearch=$(cat buildSrc/es.version)
     - !EnsureDir /var/elasticsearch
     volumes:
-      /var/elasticsearch: !Persistent { name: elastic }
-    auto-clean: true
+      /var/lib/elasticsearch: !Persistent { name: elasticsearch_data }
+      /var/log/elasticsearch: !Persistent { name: elasticsearch_logs }
+    # auto-clean: true
 
 commands:
   _mk-gradle-user-home: !Command
@@ -64,7 +67,7 @@ commands:
     run: |
       # --foreground option runs a daemon with incompatible jvm options
       # so another gradle process rejects to connect to the daemon
-      gradle --dry-run --daemon
+      ./gradlew --dry-run --daemon
       GRADLE_PID=$(pidof java)
       echo "Gradle daemon successfully started [PID: $GRADLE_PID]."
       while [ -e /proc/$GRADLE_PID ]; do sleep 1; done
@@ -72,52 +75,52 @@ commands:
   assemble: !Command
     <<: *cmd-opts
     description: Assembles the outputs of this project
-    run: [gradle, assemble]
+    run: [./gradlew, assemble]
 
-  assemble-release: !Command
+  assemble-with-version: !Command
     <<: *cmd-opts
     description: Assembles the outputs of this project
-    run: [gradle, assemble, -Prelease]
+    run: [./gradlew, assemble, -PassembledVersion]
 
   build: !Command
     <<: *cmd-opts
     description: Assembles and tests this project
-    run: [gradle, build]
+    run: [./gradlew, build]
 
   compile: !Command
     <<: *cmd-opts
     description: Compiles main source files
-    run: [gradle, compileKotlin]
+    run: [./gradlew, compile]
 
   compile-test: !Command
     <<: *cmd-opts
     description: Compiles test source files
-    run: [gradle, compileTestKotlin]
+    run: [./gradlew, compileTest]
 
   test-unit: !Command
     <<: *cmd-opts
     description: Runs unit tests
-    run: [gradle, test]
+    run: [./gradlew, test]
 
   test-integ: !Command
     <<: *cmd-opts
     description: Runs integration tests
-    run: [gradle, integTest]
+    run: [./gradlew, icTest]
 
   clean: !Command
     <<: *cmd-opts
     description: Deletes the build directory
-    run: [gradle, clean]
+    run: [./gradlew, clean]
 
   clean-build: !Command
     <<: *cmd-opts
     description: Deletes the build directory and then assembles and tests the project
-    run: [gradle, clean, build]
+    run: [./gradlew, clean, build]
 
   gradle: !Command
     <<: *cmd-opts
     description: Runs arbitrary gradle task
-    run: [gradle]
+    run: [./gradlew]
 
   test: !Command
     <<: *cmd-opts
@@ -135,13 +138,12 @@ commands:
     external-user-id: 0
     volumes:
       /usr/share/elasticsearch/plugins: !Tmpfs
-    prerequisites: [assemble]
+    prerequisites: [assemble-with-version]
     run: |
-      set -e
-      DISTRIBUTION_DIR=/work/build/distributions
-      PLUGIN_PATH=$DISTRIBUTION_DIR/rescore-grouping-mixup-$(cat /work/project.version)-es$(cat /work/es.version).zip
+      set -eux
+      DIST_DIR=/work/build/distributions
+      PROJECT_VERSION=$(cat $DIST_DIR/assembled.version)
+      PLUGIN_PATH=$DIST_DIR/rescore-grouping-mixup-$PROJECT_VERSION.zip
       /usr/share/elasticsearch/bin/elasticsearch-plugin install file:${PLUGIN_PATH}
       /usr/share/elasticsearch/bin/elasticsearch \
-        -E path.logs=/var/elasticsearch/logs \
-        -E path.data=/var/elasticsearch/data \
         -E logger.company.evo.elasticsearch=debug
