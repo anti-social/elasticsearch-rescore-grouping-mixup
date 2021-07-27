@@ -57,15 +57,17 @@ sourceSets {
 }
 
 tasks.create("generateVersionProperties") {
-    outputs.dir(generatedResourcesDir)
+    val versionsFilePath = generatedResourcesDir.resolve("es-plugin-versions.properties")
+
+    outputs.file(versionsFilePath)
+
     doLast {
         val versionProps = Properties().apply {
-            put("tag", describe.describe)
             put("projectVersion", describe.projectVersion())
             put("pluginVersion", describe.pluginVersion())
             put("esVersion", describe.esVersion())
         }
-        generatedResourcesDir.resolve("es-plugin-versions.properties").toFile().writer().use {
+        versionsFilePath.toFile().writer().use {
             versionProps.store(it, null)
         }
     }

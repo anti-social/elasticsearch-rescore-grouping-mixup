@@ -9,7 +9,7 @@ on:
   pull_request:
 
 env:
-  GRADLE_ARGS: "--info --stacktrace"
+  GRADLE_ARGS: "--info --stacktrace -PassembledInfo"
 
 jobs:
   build:
@@ -42,16 +42,6 @@ jobs:
         ./gradlew assemble $GRADLE_ARGS
         ./gradlew check $GRADLE_ARGS
 
-    - name: Save release version
-      if: |
-        github.event_name == 'push' &&
-        startsWith(github.ref, 'refs/tags/v')
-      run: |
-        set -eux
-        RELEASE_VERSION=$(echo $GITHUB_REF| sed 's/refs\/tags\/v\(.*\)/\1/')
-        echo $RELEASE_VERSION > build/distributions/release.version
-        ls -lh build/distributions
-
     - name: Upload plugin artifact
       uses: actions/upload-artifact@v2
       if: |
@@ -60,8 +50,10 @@ jobs:
       with:
         name: elasticsearch-plugin
         path: |
-          build/distributions/release.version
+          build/distributions/assembled-plugin.filename
+          build/distributions/assembled-deb.filename
           build/distributions/*.zip
+          build/distributions/*.deb
 
   release_es_plugin:
     runs-on: ubuntu-latest
@@ -85,21 +77,35 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
 
-    - name: Fetch release version
+    - name: Fetch artifact file names
       run: |
         set -eux
         ls -l
-        RELEASE_VERSION=$(cat release.version)
-        echo "Found release: $RELEASE_VERSION"
-        echo "RELEASE_ARTIFACT_NAME=rescore-grouping-mixup-$RELEASE_VERSION.zip" >> $GITHUB_ENV
+        PLUGIN_FILENAME=$(cat assembled-plugin.filename)
+        echo "Found artifact: $PLUGIN_FILENAME"
+        DEB_FILENAME=$(cat assembled-deb.filename)
+        echo "Found artifact: $DEB_FILENAME"
+        echo "PLUGIN_FILENAME=$PLUGIN_FILENAME" >> $GITHUB_ENV
+        echo "DEB_FILENAME=$DEB_FILENAME" >> $GITHUB_ENV
 
-    - name: Upload release
-      id: upload-release
+    - name: Upload release zip archive
+      id: upload-release-zip
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ env.RELEASE_ARTIFACT_NAME }}
-        asset_name: ${{ env.RELEASE_ARTIFACT_NAME }}
+        asset_path: ${{ env.PLUGIN_FILENAME }}
+        asset_name: ${{ env.PLUGIN_FILENAME }}
         asset_content_type: application/zip
+
+    - name: Upload release debian package
+      id: upload-release-deb
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ env.DEB_ARTIFACT_NAME }}
+        asset_name: ${{ env.DEB_ARTIFACT_NAME }}
+        asset_content_type: application/vnd.debian.binary-package

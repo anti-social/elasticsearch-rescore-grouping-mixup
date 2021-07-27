@@ -77,10 +77,10 @@ commands:
     description: Assembles the outputs of this project
     run: [./gradlew, assemble]
 
-  assemble-with-version: !Command
+  assemble-with-info: !Command
     <<: *cmd-opts
     description: Assembles the outputs of this project
-    run: [./gradlew, assemble, -PassembledVersion]
+    run: [./gradlew, assemble, -PassembledInfo]
 
   build: !Command
     <<: *cmd-opts
@@ -138,12 +138,12 @@ commands:
     external-user-id: 0
     volumes:
       /usr/share/elasticsearch/plugins: !Tmpfs
-    prerequisites: [assemble-with-version]
+    prerequisites: [assemble-with-info]
     run: |
       set -eux
       DIST_DIR=/work/build/distributions
-      PROJECT_VERSION=$(cat $DIST_DIR/assembled.version)
-      PLUGIN_PATH=$DIST_DIR/rescore-grouping-mixup-$PROJECT_VERSION.zip
+      PLUGIN_ARCHIVE_FILENAME=$(cat $DIST_DIR/assembled-plugin.filename)
+      PLUGIN_PATH=$DIST_DIR/$PLUGIN_ARCHIVE_FILENAME
       /usr/share/elasticsearch/bin/elasticsearch-plugin install file:${PLUGIN_PATH}
       /usr/share/elasticsearch/bin/elasticsearch \
         -E logger.company.evo.elasticsearch=debug
