@@ -1,5 +1,6 @@
 import java.nio.file.Paths
 import java.util.Properties
+import org.ajoberstar.grgit.Grgit
 
 plugins {
     `kotlin-dsl`
@@ -9,6 +10,7 @@ plugins {
 
 val defaultEsVersion = readVersion("es-default.version")
 
+val grgit = Grgit.open(mapOf("currentDir" to project.rootDir))
 val gitDescribe = grgit.describe(mapOf("match" to listOf("v*-es*"), "tags" to true))
     ?: "v0.0.0-es$defaultEsVersion"
 
