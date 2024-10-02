@@ -14,10 +14,19 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: openjdk:14
+    env:
+      JDK_IMAGE: openjdk:14
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install podman
+      run: |
+        sudo apt-get update
+        sudo apt-get install podman
+
+    - name: Pull jdk image
+      run: |
+        podman pull $JDK_IMAGE
 
     - name: Cache gradle wrapper
       uses: actions/cache@v4
@@ -36,9 +45,10 @@ jobs:
     - name: Assemble and run tests
       run: |
         set -eux
-        ./gradlew assemble $GRADLE_ARGS
-        ./gradlew test $GRADLE_ARGS
-        ./gradlew integTest $GRADLE_ARGS
+        PODMAN_RUN_OPTS="-it --rm --userns keep-id --net host -v $(pwd):/work -w /work $JDK_IMAGE"
+        podman run $PODMAN_RUN_OPTS ./gradlew assemble $GRADLE_ARGS
+        podman run $PODMAN_RUN_OPTS ./gradlew test $GRADLE_ARGS
+        podman run $PODMAN_RUN_OPTS ./gradlew integTest $GRADLE_ARGS
 
     - name: Save release version
       if: |
