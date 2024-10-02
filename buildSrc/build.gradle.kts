@@ -4,7 +4,7 @@ import java.util.Properties
 plugins {
     `kotlin-dsl`
     idea
-    id("org.ajoberstar.grgit") version "4.1.0"
+    id("org.ajoberstar.grgit") version "4.1.1"
 }
 
 val defaultEsVersion = readVersion("es-default.version")
@@ -76,6 +76,10 @@ repositories {
     gradlePluginPortal()
 }
 
+kotlinDslPluginOptions {
+    experimentalWarning.set(false)
+}
+
 idea {
     module {
         isDownloadJavadoc = false
@@ -84,8 +88,13 @@ idea {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.32")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30")
     implementation("org.elasticsearch.gradle:build-tools:${describe.esVersion()}")
+    constraints {
+        // Due to end of jCenter repository
+        implementation("com.avast.gradle:gradle-docker-compose-plugin:0.14.2")
+        implementation("com.netflix.nebula:nebula-core:4.0.1")
+    }
 }
 
 // Utils
