@@ -15,22 +15,23 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
 
     - name: Set up JDK
-      uses: actions/setup-java@v1
+      uses: actions/setup-java@v4
       with:
-        java-version: 15
+        distribution: temurin
+        java-version: 11
 
     - name: Cache gradle wrapper
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ~/.gradle/wrapper
         key: ${{ runner.os }}-gradle-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
         restore-keys: ${{ runner.os }}-gradle-wrapper
 
     - name: Cache dependencies
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ~/.gradle/caches
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/*.gradle.kts') }}
@@ -54,7 +55,7 @@ jobs:
         ls -lh build/distributions
 
     - name: Upload plugin artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       if: |
         github.event_name == 'push' &&
         startsWith(github.ref, 'refs/tags/v')
