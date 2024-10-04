@@ -1,14 +1,16 @@
 import java.nio.file.Paths
 import java.util.Properties
+import org.ajoberstar.grgit.Grgit
 
 plugins {
     `kotlin-dsl`
     idea
-    id("org.ajoberstar.grgit") version "4.1.0"
+    id("org.ajoberstar.grgit") version "4.1.1"
 }
 
 val defaultEsVersion = readVersion("es-default.version")
 
+val grgit = Grgit.open(mapOf("currentDir" to project.rootDir))
 val gitDescribe = grgit.describe(mapOf("match" to listOf("v*-es*"), "tags" to true))
     ?: "v0.0.0-es$defaultEsVersion"
 
@@ -76,6 +78,10 @@ repositories {
     gradlePluginPortal()
 }
 
+kotlinDslPluginOptions {
+    experimentalWarning.set(false)
+}
+
 idea {
     module {
         isDownloadJavadoc = false
@@ -84,8 +90,13 @@ idea {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.32")
+    implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.30")
     implementation("org.elasticsearch.gradle:build-tools:${describe.esVersion()}")
+    constraints {
+        // Due to end of jCenter repository
+        implementation("com.avast.gradle:gradle-docker-compose-plugin:0.14.2")
+        implementation("com.netflix.nebula:nebula-core:4.0.1")
+    }
 }
 
 // Utils
