@@ -1,1 +1,1 @@
-rootProject.name = "rescore-grouping-mixup"
+rootProject.name = "grouping-mixup-rescorer"
