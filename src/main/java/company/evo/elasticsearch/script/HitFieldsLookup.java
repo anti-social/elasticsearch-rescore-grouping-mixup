@@ -6,11 +6,19 @@ import org.elasticsearch.index.fielddata.ScriptDocValues;
 import org.elasticsearch.search.SearchHit;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
 
 public class HitFieldsLookup implements Map<String, ScriptDocValues<?>> {
+    final static FakeDocValues.Longs EMPTY_FIELD_VALUES =
+        new FakeDocValues.Longs(Collections.emptyList());
+
     private SearchHit hit = null;
-    private final Map<String, Tuple<FakeDocValues, ScriptDocValues<?>>> fieldValuesCache = new HashMap<>();
+    private final Map<String, Tuple<FakeDocValues, ScriptDocValues<?>>> fieldValuesCache =
+        new HashMap<>();
 
     public SearchHit hit() {
         return hit;
@@ -55,7 +63,9 @@ public class HitFieldsLookup implements Map<String, ScriptDocValues<?>> {
                 fieldValues = new FakeDocValues.Strings(values);
                 docValues = new ScriptDocValues.Strings((FakeDocValues.Strings) fieldValues);
             } else {
-                throw new UnsupportedOperationException("Unsupported field type: " + first.getClass());
+                throw new UnsupportedOperationException(
+                    "Unsupported field type: " + first.getClass()
+                );
             }
             try {
                 docValues.setNextDocId(0);
@@ -66,7 +76,7 @@ public class HitFieldsLookup implements Map<String, ScriptDocValues<?>> {
             return docValues;
         }
 
-        throw new UnsupportedOperationException();
+        return new ScriptDocValues.Longs(EMPTY_FIELD_VALUES);
     }
 
     @Override

@@ -81,7 +81,12 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
                 new Script(
                     ScriptType.INLINE,
                     "painless",
-                    "if (doc['rank'].value > 1) return 1.0 / (_pos + 1); else return 1.0;",
+                    "" +
+                        "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
+                        "    return 1.0 / (_pos + 1);" + "\n" +
+                        "} else {" + "\n" +
+                        "    return 1.0;" + "\n" +
+                        "}",
                     Collections.emptyMap()
                 )
             )
@@ -101,7 +106,12 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
                 new Script(
                     ScriptType.INLINE,
                     "painless",
-                    "if (doc['rank'].value > 1) return 1.0 / (_pos + 1); else return 1.0;",
+                    "" +
+                        "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
+                        "    return 1.0 / (_pos + 1);" + "\n" +
+                        "} else {" + "\n" +
+                        "    return 1.0;" + "\n" +
+                        "}",
                     Collections.emptyMap()
                 ),
                 List.of("rank")
@@ -112,6 +122,59 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
         GroupingMixupRescorerIT.assertOrderedSearchHitScores(
             resp, 2.1F, 1.6F, 1.0F, 0.95F, 0.8F, 0.4F
         );
+    }
+
+    public void testRescoreWithScriptFieldsWithMissingValues() throws IOException {
+        createIndex(NUMBER_OF_SHARDS);
+        populateIndex();
+
+        final var script = new Script(
+            ScriptType.INLINE,
+            "painless",
+            "" +
+                "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
+                "    return 1.0 / (_pos + 1);" + "\n" +
+                "} else {" + "\n" +
+                "    return 1.0;" + "\n" +
+                "}",
+            Collections.emptyMap()
+        );
+
+        final var request = client().prepareSearch()
+            .setSource(
+                SearchSourceBuilder.searchSource()
+                    .query(
+                        QueryBuilders.boolQuery()
+                            .filter(
+                                QueryBuilders.boolQuery()
+                                    .mustNot(QueryBuilders.existsQuery("rank"))
+                            )
+                            .should(
+                                QueryBuilders.functionScoreQuery(
+                                    ScoreFunctionBuilders.scriptFunction(
+                                        new Script(
+                                            "return doc['rank'].size() > 0 ? doc['rank'].value : 0.4;"
+                                        )
+                                    )
+                                )
+                            )
+                    )
+                    .ext(
+                        List.of(
+                            new GroupingMixupExtBuilder(
+                                "company_id",
+                                new GroupingMixupExtBuilder.RescoreScript(
+                                    script,
+                                    List.of("rank")
+                                )
+                            )
+                        )
+                    )
+            );
+        final var resp = request.get();
+        assertHitCount(resp, 1);
+        assertOrderedSearchHits(resp, "204");
+        GroupingMixupRescorerIT.assertOrderedSearchHitScores(resp, 0.4F);
     }
 
     public void testRescorePagination() throws IOException {
@@ -156,14 +219,21 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
         );
     }
 
-    private SearchRequestBuilder rescoreSearchRequest(int windowSize, int shardSize, boolean pagination, GroupingMixupExtBuilder.RescoreScript rescoreScript) {
+    private SearchRequestBuilder rescoreSearchRequest(
+        int windowSize,
+        int shardSize,
+        boolean pagination,
+        GroupingMixupExtBuilder.RescoreScript rescoreScript
+    ) {
         return client().prepareSearch()
             .setSource(
                 SearchSourceBuilder.searchSource()
                     .query(
                         QueryBuilders.functionScoreQuery(
                             ScoreFunctionBuilders.scriptFunction(
-                                new Script("return doc['rank'].value;")
+                                new Script(
+                                    "return doc['rank'].size() > 0 ? doc['rank'].value : 0.4;"
+                                )
                             )
                         )
                     )
@@ -244,8 +314,7 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
         client().prepareIndex("test", "product", "204")
             .setSource(
                 "name", "the brother of the quick lazy fox",
-                "company_id", 2,
-                "rank", 0.4
+                "company_id", 2
             )
             .get();
         refresh();
