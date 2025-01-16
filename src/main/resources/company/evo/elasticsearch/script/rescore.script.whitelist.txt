@@ -1,0 +1,24 @@
+class company.evo.elasticsearch.script.DocumentFieldExt @no_import {
+}
+
+class org.elasticsearch.common.document.DocumentField {
+    String getName()
+    Object getValue()
+    List getValues()
+
+    Long company.evo.elasticsearch.script.DocumentFieldExt longValue()
+    long company.evo.elasticsearch.script.DocumentFieldExt longValueOrDefault(long)
+    Double company.evo.elasticsearch.script.DocumentFieldExt doubleValue()
+    double company.evo.elasticsearch.script.DocumentFieldExt doubleValueOrDefault(double)
+    Boolean company.evo.elasticsearch.script.DocumentFieldExt booleanValue()
+    boolean company.evo.elasticsearch.script.DocumentFieldExt booleanValueOrDefault(boolean)
+    String company.evo.elasticsearch.script.DocumentFieldExt stringValue()
+    String company.evo.elasticsearch.script.DocumentFieldExt stringValueOrDefault(String)
+}
+
+class org.elasticsearch.search.SearchHit {
+    String getId()
+    float getScore()
+    DocumentField field(String)
+    java.util.Map getFields()
+}
