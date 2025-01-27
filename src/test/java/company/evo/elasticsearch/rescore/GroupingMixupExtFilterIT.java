@@ -81,12 +81,13 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
                 new Script(
                     ScriptType.INLINE,
                     "painless",
-                    "" +
-                        "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
-                        "    return 1.0 / (_pos + 1);" + "\n" +
-                        "} else {" + "\n" +
-                        "    return 1.0;" + "\n" +
-                        "}",
+                    """
+                        if (hit.field('rank').doubleValueOrDefault(0.0) > 1.0) {
+                            return 1.0 / (_pos + 1);
+                        } else {
+                            return 1.0;
+                        }
+                    """,
                     Collections.emptyMap()
                 )
             )
@@ -106,12 +107,13 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
                 new Script(
                     ScriptType.INLINE,
                     "painless",
-                    "" +
-                        "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
-                        "    return 1.0 / (_pos + 1);" + "\n" +
-                        "} else {" + "\n" +
-                        "    return 1.0;" + "\n" +
-                        "}",
+                    """
+                        if (hit.field('rank').doubleValueOrDefault(0.0) > 1.0) {
+                            return 1.0 / (_pos + 1);
+                        } else {
+                            return 1.0;
+                        }
+                    """,
                     Collections.emptyMap()
                 ),
                 List.of("rank")
@@ -131,12 +133,13 @@ public class GroupingMixupExtFilterIT extends ESIntegTestCase {
         final var script = new Script(
             ScriptType.INLINE,
             "painless",
-            "" +
-                "if (doc['rank'].size() > 0 && doc['rank'].value > 1) {" + "\n" +
-                "    return 1.0 / (_pos + 1);" + "\n" +
-                "} else {" + "\n" +
-                "    return 1.0;" + "\n" +
-                "}",
+            """
+                if (hit.field('rank').doubleValueOrDefault(0.0) > 1) {
+                    return 1.0 / (_pos + 1);
+                } else {
+                    return 1.0;
+                }
+            """,
             Collections.emptyMap()
         );
 

@@ -12,6 +12,7 @@ configure<org.elasticsearch.gradle.plugin.PluginPropertiesExtension> {
     description = "Adds rescorer for mixing up search hits inside their groups."
     classname = "company.evo.elasticsearch.plugin.GroupingMixupPlugin"
     version = Versions.plugin
+    extendedPlugins = listOf("lang-painless")
 }
 
 setProperty("licenseFile", project.rootProject.file("LICENSE.txt"))
@@ -20,8 +21,12 @@ setProperty("noticeFile", project.rootProject.file("NOTICE.txt"))
 version = Versions.project
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
+    sourceCompatibility = JavaVersion.VERSION_15
+    targetCompatibility = JavaVersion.VERSION_15
+}
+
+dependencies {
+    compileOnly("org.elasticsearch.plugin:elasticsearch-scripting-painless-spi:${Versions.elasticsearch}")
 }
 
 configure<NamedDomainObjectContainer<org.elasticsearch.gradle.testclusters.ElasticsearchCluster>> {

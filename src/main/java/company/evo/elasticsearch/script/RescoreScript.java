@@ -18,7 +18,7 @@ public abstract class RescoreScript {
     public static final ScriptContext<Factory> CONTEXT = new ScriptContext<>("rescore", Factory.class);
 
     private final Map<String, Object> params;
-    private final HitFieldsLookup hitLookup = new HitFieldsLookup();
+    private SearchHit hit;
     private int pos;
 
     public RescoreScript(Map<String, Object> params) {
@@ -31,24 +31,13 @@ public abstract class RescoreScript {
     }
 
     public void setSearchHit(SearchHit hit, int pos) {
-        hitLookup.setHit(hit);
+        this.hit = hit;
         this.pos = pos;
     }
 
-    /** Emulates doc['field'].value script API */
-    public Map<String, ScriptDocValues<?>> getDoc() {
-        return hitLookup;
-    }
-
-    /** Provides access to hit fields as a raw list of values: hit['field'][0] */
-    public Map<String, List<?>> getHit() {
-        // TODO: Implement non-copy API for accessing hit fields
-        throw new UnsupportedOperationException();
-    }
-
-    /** Current hit score */
-    public float get_score() {
-        return hitLookup.hit().getScore();
+    /** Provides access to hit fields as a raw list of values: hit.field('field').values */
+    public SearchHit getHit() {
+        return hit;
     }
 
     /** Current hit position inside its group */
