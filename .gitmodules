@@ -1,0 +1,4 @@
+[submodule "buildSrc"]
+	path = buildSrc
+	url = https://github.com/anti-social/elasticsearch-build-gradle-plugin.git
+	branch = es7.9
