@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: anti-social/elasticsearch-plugin-github-action/build@v1.0.1
+    - uses: anti-social/elasticsearch-plugin-github-action/build@v1.0.5
       with:
         es-version: '7.9'
 
@@ -26,4 +26,4 @@ jobs:
     permissions:
       contents: write
     steps:
-    - uses: anti-social/elasticsearch-plugin-github-action/release@v1.0.1
+    - uses: anti-social/elasticsearch-plugin-github-action/release@v1.0.5
