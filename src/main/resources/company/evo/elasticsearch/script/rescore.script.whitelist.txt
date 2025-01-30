@@ -8,8 +8,12 @@ class org.elasticsearch.common.document.DocumentField {
 
     Long company.evo.elasticsearch.script.DocumentFieldExt longValue()
     long company.evo.elasticsearch.script.DocumentFieldExt longValueOrDefault(long)
+    Integer company.evo.elasticsearch.script.DocumentFieldExt intValue()
+    int company.evo.elasticsearch.script.DocumentFieldExt intValueOrDefault(int)
     Double company.evo.elasticsearch.script.DocumentFieldExt doubleValue()
     double company.evo.elasticsearch.script.DocumentFieldExt doubleValueOrDefault(double)
+    Float company.evo.elasticsearch.script.DocumentFieldExt floatValue()
+    float company.evo.elasticsearch.script.DocumentFieldExt floatValueOrDefault(float)
     Boolean company.evo.elasticsearch.script.DocumentFieldExt booleanValue()
     boolean company.evo.elasticsearch.script.DocumentFieldExt booleanValueOrDefault(boolean)
     String company.evo.elasticsearch.script.DocumentFieldExt stringValue()

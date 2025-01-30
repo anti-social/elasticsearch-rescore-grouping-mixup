@@ -23,6 +23,16 @@ public final class DocumentFieldExt {
         return value;
     }
 
+    public static Float floatValue(DocumentField hit) {
+        final var value = doubleValue(hit);
+        return value == null ? null : value.floatValue();
+    }
+
+    public static float floatValueOrDefault(DocumentField hit, float defaultValue) {
+        Double value = doubleValue(hit);
+        return value == null ? defaultValue : value.floatValue();
+    }
+
     public static Long longValue(DocumentField hit) {
         return (Long) hit.getValue();
     }
@@ -33,6 +43,16 @@ public final class DocumentFieldExt {
             return defaultValue;
         }
         return value;
+    }
+
+    public static Integer intValue(DocumentField hit) {
+        final var value = longValue(hit);
+        return value == null ? null : value.intValue();
+    }
+
+    public static int intValueOrDefault(DocumentField hit, int defaultValue) {
+        Long value = longValue(hit);
+        return value == null ? defaultValue : value.intValue();
     }
 
     public static Boolean booleanValue(DocumentField hit) {
